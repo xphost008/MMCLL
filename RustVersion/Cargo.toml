@@ -1,8 +1,8 @@
 [package]
-name = "tank_launcher_module"
+name = "mmcll"
 version = "0.0.1"
 edition = "2021"
-description = "Tank Launcher Module! A fast and safe Minecraft Launcher Module!!"
+description = "More MineCraft Launcher Lib! A fast and safe Minecraft Launcher Module!!"
 license = "MIT"
 authors = ["xphost"]
 
