@@ -182,7 +182,7 @@ impl LaunchOption
 impl LaunchGame
 	私有自己的启动类。如果想调用该类，请往下看。
 
-impl AccountLogin
+impl LaunchAccount
 	账号启动类，内有7个全局变量，其中6个可以被初始化
 	均只能被get，只能通过初始化的方式赋值
 

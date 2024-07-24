@@ -79,7 +79,7 @@ pub mod account_mod {
             let http = reqwest::blocking::Client::new();
             let res = http
                 .get(self.url.as_str())
-                .header(reqwest::header::AUTHORIZATION, format!("{} {}", "Bearer", key))
+                .header(reqwest::header::AUTHORIZATION, format!("Bearer {}", key))
                 .send();
             if let Err(_) = res { return None }
             let res = res.unwrap().text();
@@ -147,7 +147,7 @@ pub mod account_mod {
         pub fn get_user_refresh_token(&self) -> String{
             return self.user_refresh_token.clone();
         }
-        pub fn get_user_client_token(&self, user_name: String) -> String{
+        pub fn get_user_client_token(&self) -> String{
             return self.user_client_token.clone();
         }
     }
@@ -449,7 +449,7 @@ pub mod launcher_mod {
                     if let Err(_) = cd { continue; }
                 }
             }
-        }
+        } 
         true
     }
     /**
@@ -847,12 +847,10 @@ pub mod launcher_mod {
         if let None = sha { return None; }
         let sha = sha.unwrap();
         let tmp = get_mc_real_path(inh, sha);
-        if let None = tmp { return None; }
-        let tmp = tmp.unwrap();
-        if tmp.is_empty() {
-            res = res[0..res.rfind("$").unwrap()].to_string();
+        if let Some(e) = tmp { 
+            res.push_str(e.as_str());
         } else {
-            res.push_str(tmp.as_str());
+            res = res[0..res.rfind("$").unwrap()].to_string();
         }
         Some(res)
     }
@@ -958,7 +956,7 @@ pub mod launcher_mod {
      * root_path里面包含【assets、libraries】两个文件夹
      * version_path里面包含【版本.json、版本.jar】两个文件
      * 后期解压Native是默认解压到version_path路径下的！
-     * @param account: 账号类，参见AccountLogin。
+     * @param account: 账号类，参见LaunchAccount。
      * @param java_path: Java路径
      * @param root_path: MC根路径（用于查询assets、libraries）
      * @param version_path: MC版本路径（用于查询MC元数据JSON和本体jar）
@@ -972,7 +970,7 @@ pub mod launcher_mod {
      * @param pre_launch_script: 启动前执行脚本
      */
     pub struct LaunchOption{
-        account: AccountLogin,
+        account: LaunchAccount,
         java_path: String,
         root_path: String,
         version_path: String,
@@ -986,7 +984,7 @@ pub mod launcher_mod {
         additional_game: String,
     }
     impl LaunchOption {
-        pub fn new(account: AccountLogin, java_path: &str, root_path: &str, version_path: &str, game_path: &str) -> Self {
+        pub fn new(account: LaunchAccount, java_path: &str, root_path: &str, version_path: &str, game_path: &str) -> Self {
             Self {
                 account,
                 java_path: java_path.to_string(),
@@ -1023,7 +1021,7 @@ pub mod launcher_mod {
         pub fn set_additional_game(&mut self, additional_game: &str) {
             self.additional_game = additional_game.to_string();
         }
-        pub fn get_account(&self) -> AccountLogin {
+        pub fn get_account(&self) -> LaunchAccount {
             self.account.clone()
         }
         pub fn get_java_path(&self) -> &str {
@@ -1061,7 +1059,7 @@ pub mod launcher_mod {
         }
     }
     pub struct LaunchGame {
-        account: AccountLogin,
+        account: LaunchAccount,
         java_path: String,
         root_path: String,
         version_path: String,
@@ -1073,14 +1071,16 @@ pub mod launcher_mod {
         custom_info: String,
         additional_jvm: String,
         additional_game: String,
-        callback: Box<dyn Fn(Vec<&str>, &str)>,
+        callback: Box<dyn Fn(Vec<&str>)>,
     }
     /**
      * 启动游戏的私有实现类，如果想要调用的话，请直接使用下方的launch_game函数。
      * 如果你想自己实现启动逻辑，可以看下面启动游戏的逻辑，然后调用相对应的函数。因为除了该私有实现以外，别的函数都是pub的！
      */
     impl LaunchGame {
-        fn new<F: Fn(Vec<&str>, &str) + 'static>(option: LaunchOption, callback: F) -> Self 
+        fn new<F>(option: LaunchOption, callback: F) -> Self 
+        where
+            F: Fn(Vec<&str>) + 'static
         // fn new<F: Fn(String) + 'static>(option: LaunchOption, callback: F) -> Self 
         {
             Self {
@@ -1531,7 +1531,7 @@ pub mod launcher_mod {
             let mut param = param.unwrap();
             param.splice(0..0, [self.java_path.clone()]);
             let command = param.iter().map(AsRef::as_ref).collect();
-            (self.callback)(command, self.game_path.as_str());
+            (self.callback)(command);
             // return param.unwrap();
         }
     }
@@ -1551,23 +1551,23 @@ pub mod launcher_mod {
      * @param online: 仅用于标记目前你使用的哪种方式登录，不作为默认参数提供。
      * 
      * 
-     * 离线模式调用示例：AccountLogin::new_offline("Steve", "1234567890abcdef1234567890abcdef");
-     * 或：AccountLogin::new_offline_default("Steve");  // UUID会自动按照bukkit方式生成。
-     * 微软登录调用示例：AccountLogin::new_microsoft("Steve", "1234567890abcdef1234567890abcdef", "<你的access token密钥>")
-     * 第三方外置登录调用示例：AccountLogin::new_thirdparty(
+     * 离线模式调用示例：LaunchAccount::new_offline("Steve", "1234567890abcdef1234567890abcdef");
+     * 或：LaunchAccount::new_offline_default("Steve");  // UUID会自动按照bukkit方式生成。
+     * 微软登录调用示例：LaunchAccount::new_microsoft("Steve", "1234567890abcdef1234567890abcdef", "<你的access token密钥>")
+     * 第三方外置登录调用示例：LaunchAccount::new_thirdparty(
      *                      "Steve", 
      *                      "1234567890abcdef1234567890abcdef", 
      *                      "<你的access token密钥>", 
      *                      "<你的皮肤站元数据base64编码>", 
      *                      "https://littleskin.cn/api/yggdrasil"")  # 皮肤站元数据必须得是精确到api/yggdrasil的！
-     * 或：AccountLogin::new_thirdparty(
+     * 或：LaunchAccount::new_thirdparty(
      *                      "Steve", 
      *                      "1234567890abcdef1234567890abcdef", 
      *                      "<你的access token密钥>", 
      *                      "https://littleskin.cn/api/yggdrasil"")  # 此时皮肤站元数据base64编码会自动从api密钥获取。
      */ 
     #[derive(Clone)]
-    pub struct AccountLogin{
+    pub struct LaunchAccount{
         name: String,
         uuid: String,
         access_token: String,
@@ -1576,7 +1576,7 @@ pub mod launcher_mod {
         url: String,
         online: i32,
     }
-    impl AccountLogin{
+    impl LaunchAccount{
         fn new(name: String, uuid: String, access_token: String, atype: String, base: String, url: String, online: i32) -> Self {
             Self {
                 name: name.clone(),
@@ -1589,54 +1589,54 @@ pub mod launcher_mod {
             }
         }
         pub fn new_offline(name: &str, uuid: &str) -> Self{
-            AccountLogin::new(
-                name.to_string(), 
-                uuid.to_string(), 
-                uuid.to_string(), 
-                String::from("Legacy"), 
-                String::new(), 
-                String::new(), 
+            LaunchAccount::new(
+                name.to_string(),
+                uuid.to_string(),
+                uuid.to_string(),
+                String::from("Legacy"),
+                String::new(),
+                String::new(),
                 0)
         }
         pub fn new_offline_default(name: &str) -> Self {
             let uuid = super::main_mod::generate_bukkit_uuid(name);
-            AccountLogin::new(
-                name.to_string(), 
-                uuid.clone(), 
-                uuid.clone(), 
-                String::from("Legacy"), 
-                String::new(), 
-                String::new(), 
+            LaunchAccount::new(
+                name.to_string(),
+                uuid.clone(),
+                uuid.clone(),
+                String::from("Legacy"),
+                String::new(),
+                String::new(),
                 0)
         }
         pub fn new_microsoft(name: &str, uuid: &str, access_token: &str) -> Self{
-            AccountLogin::new(
-                name.to_string(), 
-                uuid.to_string(), 
-                access_token.to_string(), 
-                String::from("msa"), 
-                String::new(), 
-                String::new(), 
+            LaunchAccount::new(
+                name.to_string(),
+                uuid.to_string(),
+                access_token.to_string(),
+                String::from("msa"),
+                String::new(),
+                String::new(),
                 1)
         }
         pub fn new_thirdparty(name: &str, uuid: &str, access_token: &str, base: &str, url: &str) -> Self{
-            AccountLogin::new(
-                name.to_string(), 
-                uuid.to_string(), 
-                access_token.to_string(), 
-                String::from("msa"), 
-                base.to_string(), 
-                url.to_string(), 
+            LaunchAccount::new(
+                name.to_string(),
+                uuid.to_string(),
+                access_token.to_string(),
+                String::from("msa"),
+                base.to_string(),
+                url.to_string(),
                 2)
         }
         pub fn new_thirdparty_default(name: &str, uuid: &str, access_token: &str, url: &str) -> Self {
-            AccountLogin::new(
-                name.to_string(), 
-                uuid.to_string(), 
-                access_token.to_string(), 
-                String::from("msa"), 
-                super::main_mod::generate_thirdparty_metadata_base64(url), 
-                url.to_string(), 
+            LaunchAccount::new(
+                name.to_string(),
+                uuid.to_string(),
+                access_token.to_string(),
+                String::from("msa"),
+                super::main_mod::generate_thirdparty_metadata_base64(url),
+                url.to_string(),
                 2)
         }
         pub fn get_name(&self) -> &str {
@@ -1665,7 +1665,10 @@ pub mod launcher_mod {
      * 该函数为启动游戏的函数，接受一个LaunchOption函数和一个闭包。
      * 其中，闭包用于获取启动参数。
      */
-    pub fn launch_game<F: Fn(Vec<&str>, &str) + 'static>(option: LaunchOption, callback: F) -> Result<(), i32>{
+    pub fn launch_game<F>(option: LaunchOption, callback: F) -> Result<(), i32>
+    where
+        F: Fn(Vec<&str>) + 'static
+    {
         let res = LaunchGame::new(option, callback);
         return if let Err(e) = res.check_error() {
             Err(e)
