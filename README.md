@@ -28,22 +28,22 @@
 |语言|源码库文件夹|完成进度|
 |----|----|----|
 |C++|CppVersion|0%|
-|Java|JavaVersion|0%|
+|Java|JavaVersion|13%|
 |C#|CSVersion|0%|
 |Python|PythonVersion|3%|
-|Delphi|DelphiVersion|8%|
+|Delphi|DelphiVersion|5%|
 |易语言|EVersion|0%|
 |Go|GoVersion|0%|
 |Rust|RustVersion|15%|
-|TypeScript|TSVersion|0%|
 
-- 其中，很多种文件夹里面都是只有一个文件的，只有极少数文件夹里面有多个文件。例如：
+- 其中，很多种文件夹有多个文件。只有极少数语言里仅含有单个文件。例如：
 
-1. Delphi里面可能会有dproj、dpr文件、
-2. Rust里面可能会有Cargo.toml文件等。
-3. Java里面可能会有maven.xml文件
+1. Java里面可能会有maven.xml文件等。
+2. Python里可能会含有requestment.txt文件等。
+2. Go语言里面可能会有go.mod文件等。
+3. Rust里面可能会有Cargo.toml文件等。
 
-- 其中，由于易语言的库是直接发布【.e】后缀的源码，而非ec或者dll之类的类库，因此大家需要在易语言里导入这个e文件，然后在e文件里自行复制源码之后再导入自己的工程就好了。
+- 其中，由于易语言的库是直接发布【.e】后缀的源码，并且附带一个【.ec】后缀的类库，并非dll之类的类库，因此大家需要在易语言里导入这个ec文件就好了。如果想看源码的话，就请自行下载e后缀的进行查看噢！
 
 ## 许可协议：
 
@@ -73,7 +73,6 @@
 |易语言|易语言|
 |Go|Jetbrains GoLand|
 |Rust|Jetbrains RustRover|
-|TypeScript|Jetbrains WebStorm|
 
 - 别问我为什么这么喜欢JetBrains家的玩意，因为爱情！
 
@@ -94,12 +93,16 @@
 |Julia|更一样了，啥也没有|是|
 |Zig、Pony、Pike、Vala|这些等异常冷门的语言，我不会|是|
 
+**已删除TypeScript语言标记！原因：《我不造啊》**
+
 ## 关于贡献名单
 
 1. 如果你为作者提交了一个issue，并且提交的是已有语言的bug，那我可能会将你添加至：【优秀贡献人员】中。
 2. 如果你为作者提交了一个issue，并且在已有语言的基础上，详细说明添加某个该有的函数或功能，那我可能会将你加入【精品贡献人员】中。
 3. 如果你为作者提交了一个pull request，直接帮助作者修复已有源码的bug，那我可能会将你加入【史诗贡献人员】中。
 4. 如果你为作者提交了一个pull request，并且这个pull request是另一门非常火的语言，你帮作者完善了类库，那我可能会将你加入【传奇贡献人员】中。
+
+## 提交你的issue！
 
 提交issue报告流程：
 ```
