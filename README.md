@@ -17,7 +17,6 @@
 6. 易语言类库
 7. Go语言类库
 8. Rust类库
-9. TypeScript类库
 
 - 这几种类库为作者随意制作，可能有些许的不足，但这些事也几乎微不足道。如果你还有更好的建议，欢迎在此处提出issue。
 
@@ -28,7 +27,7 @@
 |语言|源码库文件夹|完成进度|
 |----|----|----|
 |C++|CppVersion|0%|
-|Java|JavaVersion|13%|
+|Java|JavaVersion|0%|
 |C#|CSVersion|0%|
 |Python|PythonVersion|3%|
 |Delphi|DelphiVersion|5%|
