@@ -263,6 +263,71 @@ pub mod main_mod {
         let versub = versub.unwrap();
         return versub.to_string();
     }
+    /**
+     * 获取exe的位数（32位或64位）
+     */
+    pub fn get_file_bit(file: String) -> Option<bool> {
+        let path = std::path::Path::new(file.as_str());
+        if !path.exists() || path.exists() && path.is_dir() {
+            return None;
+        }
+        let data = pelite::FileMap::open(path);
+        if let Err(_) = data {
+            return None;
+        }
+        let data = data.unwrap();
+        let file = pelite::PeFile::from_bytes(&data);
+        if let Err(_) = file {
+            return None;
+        }
+        let file = file.unwrap();
+        match file {
+            pelite::Wrap::T64(_) => {
+                return Some(true);
+            }
+            pelite::Wrap::T32(_) => {
+                return Some(false);
+            }
+        }
+    }
+    /**
+     * 获取exe文件的版本号
+     */
+    pub fn get_file_version(file: String) -> Option<String> {
+        let path = std::path::Path::new(file.as_str());
+        if !path.exists() || path.exists() && path.is_dir() {
+            return None;
+        }
+        let data = pelite::FileMap::open(path);
+        if let Err(_) = data {
+            return None;
+        }
+        let data = data.unwrap();
+        let file = pelite::PeFile::from_bytes(&data);
+        if let Err(_) = file {
+            return None;
+        }
+        let file = file.unwrap();
+        let file = file.resources();
+        if let Err(_) = file {
+            return None;
+        }
+        let fixed_version = file.unwrap().version_info();
+        if let Err(_) = fixed_version {
+            return None;
+        }
+        let fixed_version = fixed_version.unwrap().fixed();
+        if let None = fixed_version {
+            return None;
+        }
+        let fixed_version = fixed_version.unwrap();
+        return Some(format!("{}.{}.{}.{}", 
+                    fixed_version.dwFileVersion.Major.to_string(),
+                    fixed_version.dwFileVersion.Minor.to_string(),
+                    fixed_version.dwFileVersion.Build.to_string(),
+                    fixed_version.dwFileVersion.Patch.to_string()
+                ));
+    }
 }
 /**
  * 专注于启动游戏的模块，所有启动游戏的函数都可以在这里面找到！
@@ -619,7 +684,7 @@ pub mod launcher_mod {
                 if pa.is_dir() { continue; }
                 let ps = pa.display().to_string();
                 if ps.contains(suffix) {
-                    return if suffix.eq(".json") && ps[(ps.len() - 5)..ps.len()].eq(".json") {
+                    return if suffix.eq(".json") {
                         let file_content = super::main_mod::get_file(ps.as_str());
                         if let None = file_content { continue; }
                         let file_content = file_content.unwrap();
@@ -644,7 +709,7 @@ pub mod launcher_mod {
                         Some(ps)
                     } else {
                         Some(ps)
-                    }
+                    };
                 }else if !suffix.contains(".") {
                     let sha = super::main_mod::get_sha1(ps.as_str());
                     if let None = sha { continue; }
@@ -1081,7 +1146,6 @@ pub mod launcher_mod {
         fn new<F>(option: LaunchOption, callback: F) -> Self 
         where
             F: Fn(Vec<&str>) + 'static
-        // fn new<F: Fn(String) + 'static>(option: LaunchOption, callback: F) -> Self 
         {
             Self {
                 account: option.get_account(),
@@ -1169,7 +1233,7 @@ pub mod launcher_mod {
                     return Err(ERR_LAUNCH_ACCOUNT_ACCESS_TOKEN);
                 }
             } else if self.account.get_online() == 2 {
-                if self.account.get_base().is_empty() {
+                if self.account.get_base().is_empty() || !regex::Regex::new(r"^([A-Za-z0-9+/]{4})*([A-Za-z0-9+/]{3}=|[A-Za-z0-9+/]{2}==)?$").unwrap().is_match(self.account.get_base()) {
                     return Err(ERR_LAUNCH_ACCOUNT_THIRDPARTY_BASE);
                 }
                 let t = format!("{}/authserver/validate", self.account.get_url());
@@ -1287,7 +1351,7 @@ pub mod launcher_mod {
                     }
                 }
             }
-            result.push(format!("-Xmx{}m", self.min_memory));
+            result.push(format!("-Xmn{}m", self.min_memory));
             result.push(format!("-Xmx{}m", self.max_memory));
             //下列拼接game参数
             let main_class = root.get("mainClass");
@@ -1422,7 +1486,7 @@ pub mod launcher_mod {
                     }
                 }
             }
-            result.push(format!("-Xmx{}m", self.min_memory));
+            result.push(format!("-Xmn{}m", self.min_memory));
             result.push(format!("-Xmx{}m", self.max_memory));
             let main_class = root.get("mainClass");
             if let None = main_class { return None; }
@@ -1481,7 +1545,7 @@ pub mod launcher_mod {
          * 如果没有错误，则会调用该函数。如果启动过程中出现不可预知的错误，则会直接panic掉！
          */
         fn game_launch(&self) {
-            let def_jvm: String = String::from("-XX:+UseG1GC -XX:-UseAdaptiveSizePolicy -XX:-OmitStackTraceInFastThrow -Dfml.ignoreInvalidMinecraftCertificates=True -Dfml.ignorePatchDiscrepancies=True -Dlog4j2.formatMsgNoLookups=true");
+            let def_jvm: String = String::from("-XX:+UseG1GC -XX:-UseAdaptiveSizePolicy -XX:-OmitStackTraceInFastThrow -Dfml.ignoreInvalidMinecraftCertificates=True -Dfml.ignorePatchDiscrepancies=True -Dlog4j2.formatMsgNoLookups=True");
             let defn_jvm: String = String::from("-XX:HeapDumpPath=MojangTricksIntelDriversForPerformance_javaw.exe_minecraft.exe.heapdump");
             let version_json_path = get_mc_real_path(self.version_path.clone(), ".json");
             if let None = version_json_path {
@@ -1565,7 +1629,7 @@ pub mod launcher_mod {
      *                      "1234567890abcdef1234567890abcdef", 
      *                      "<你的access token密钥>", 
      *                      "https://littleskin.cn/api/yggdrasil"")  # 此时皮肤站元数据base64编码会自动从api密钥获取。
-     */ 
+     */
     #[derive(Clone)]
     pub struct LaunchAccount{
         name: String,
@@ -1657,7 +1721,7 @@ pub mod launcher_mod {
         pub fn get_url(&self) -> &str {
             self.url.as_str()
         }
-        pub fn get_online(&self) -> i32 {
+        fn get_online(&self) -> i32 {
             self.online
         }
     }

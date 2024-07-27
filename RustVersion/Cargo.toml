@@ -6,10 +6,10 @@ description = "More MineCraft Launcher Lib! A fast and safe Minecraft Launcher M
 license = "MIT"
 authors = ["xphost"]
 
-
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-
 [dependencies]
+
+# 以下是必需库（部分类库仅限Windows，如果你有更好的选择，请向作者进行联系！）
+
 serde_json = "1.0.116"															# 解析JSON
 sysinfo = "0.30.11"																# 获取系统内存信息
 reqwest = {version = "0.12.4", features = ["blocking"]}							# 网络请求
@@ -21,3 +21,9 @@ base64 = "0.22.1"																# 使用base64加密数据
 winit = "0.20.0"																# 获取屏幕宽高
 hex = "0.4.3"																	# 编写16进制数据
 zip = "2.1.3"																	# 解压zip
+
+# 以下是可选库
+
+pelite = "0.10.0"  # 可选库，用于获取exe的版本以及位数。通常用于获取Java的版本和位数。
+# 该库仅限Windows，如果你需要跨平台，请向作者提出建议，并附赠你的代码！
+# 如果不需要此类库，你需要删除rust_lib里的【269行的函数以及296行的所有函数内容】

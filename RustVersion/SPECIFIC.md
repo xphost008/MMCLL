@@ -58,6 +58,16 @@ pub fn extract_file_name(file: &str) -> String
 	返回一个文件的文件名。
 	填入【D:\aa.txt】时返回【aa.txt】。
 	如果填入的非路径，或者末尾带有“\”的路径，或者都没有出现过“\”的路径，则返回空。
+
+pub fn get_file_bits(file: String) -> Option<bool>
+	返回文件的位数【为32位或64位】
+	如果是64位则为true，反之则为false。
+	该函数仅限Windows！！！
+
+pub fn get_file_version(file: String) -> Option<String>
+	返回文件的版本。
+	该函数目前只返回String，如果想让其返回Vec，你需要自行修改该函数！
+	该函数仅限Windows！！！
 ```
 
 ## rust_lib::launcher_mod
