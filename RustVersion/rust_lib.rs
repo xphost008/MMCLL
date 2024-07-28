@@ -34,7 +34,7 @@ pub mod some_var {
     pub static mut DOWNLOAD_SOURCE: i32 = 1;  //下载源：目前仅支持两个数字，1：官方、2：BMCLAPI
     pub static mut MC_ROOT_JSON: String = String::new();  //mc的元数据（可以自己赋值也可以由类库帮忙赋值！）仅能赋值元数据值，如果赋上了别的值，后果自负！
     pub static mut AUTHLIB_PATH: String = String::new();  //设置第三方登录的模块jar文件。在使用第三方登录的时候一定要设置该参数！
-    pub static mut AUTHLIB_URL: String = String::new();
+    // pub static mut AUTHLIB_URL: String = String::new();
 }
 pub mod account_mod {
     pub struct UrlMethod {
@@ -100,64 +100,64 @@ pub mod account_mod {
             Some(res.unwrap())
         }
     }
-    /**
-     * 账号返回类，每次登录账号都会返回一个该类。
-     */
-    struct AccountResult{
-        user_name: String,
-        user_uuid: String,
-        user_access_token: String,
-        user_refresh_token: String,
-        user_client_token: String,
-    }
-    impl AccountResult{
-        fn new() -> Self{
-            Self{
-                user_name: String::new(),
-                user_uuid: String::new(),
-                user_access_token: String::new(),
-                user_refresh_token: String::new(),
-                user_client_token: String::new(),
-            }
-        }
-        fn set_user_name(&mut self, user_name: String){
-            self.user_name = user_name.clone();
-        }
-        fn set_user_uuid(&mut self, user_uuid: String){
-            self.user_uuid = user_uuid.clone();
-        }
-        fn set_user_access_token(&mut self, user_access_token: String){
-            self.user_access_token = user_access_token.clone();
-        }
-        fn set_user_refresh_token(&mut self, user_refresh_token: String){
-            self.user_refresh_token = user_refresh_token.clone();
-        }
-        fn set_user_client_token(&mut self, user_client_token: String){
-            self.user_client_token = user_client_token.clone();
-        }
-        pub fn get_user_name(&self) -> String{
-            return self.user_name.clone();
-        }
-        pub fn get_user_uuid(&self) -> String{
-            return self.user_uuid.clone();
-        }
-        pub fn get_user_access_token(&self) -> String{
-            return self.user_access_token.clone();
-        }
-        pub fn get_user_refresh_token(&self) -> String{
-            return self.user_refresh_token.clone();
-        }
-        pub fn get_user_client_token(&self) -> String{
-            return self.user_client_token.clone();
-        }
-    }
-    /**
-     * 该impl才是账号登录类，你可以进入这里随时进行账号登录！
-     */
-    pub struct AccountLogin{}
-    impl AccountLogin{
+    // /**
+    //  * 账号返回类，每次登录账号都会返回一个该类。
+    //  */
+    // struct AccountResult{
+    //     user_name: String,
+    //     user_uuid: String,
+    //     user_access_token: String,
+    //     user_refresh_token: String,
+    //     user_client_token: String,
+    // }
+    // impl AccountResult{
+    //     fn new() -> Self{
+    //         Self{
+    //             user_name: String::new(),
+    //             user_uuid: String::new(),
+    //             user_access_token: String::new(),
+    //             user_refresh_token: String::new(),
+    //             user_client_token: String::new(),
+    //         }
+    //     }
+    //     fn set_user_name(&mut self, user_name: String){
+    //         self.user_name = user_name.clone();
+    //     }
+    //     fn set_user_uuid(&mut self, user_uuid: String){
+    //         self.user_uuid = user_uuid.clone();
+    //     }
+    //     fn set_user_access_token(&mut self, user_access_token: String){
+    //         self.user_access_token = user_access_token.clone();
+    //     }
+    //     fn set_user_refresh_token(&mut self, user_refresh_token: String){
+    //         self.user_refresh_token = user_refresh_token.clone();
+    //     }
+    //     fn set_user_client_token(&mut self, user_client_token: String){
+    //         self.user_client_token = user_client_token.clone();
+    //     }
+    //     pub fn get_user_name(&self) -> String{
+    //         return self.user_name.clone();
+    //     }
+    //     pub fn get_user_uuid(&self) -> String{
+    //         return self.user_uuid.clone();
+    //     }
+    //     pub fn get_user_access_token(&self) -> String{
+    //         return self.user_access_token.clone();
+    //     }
+    //     pub fn get_user_refresh_token(&self) -> String{
+    //         return self.user_refresh_token.clone();
+    //     }
+    //     pub fn get_user_client_token(&self) -> String{
+    //         return self.user_client_token.clone();
+    //     }
+    // }
+    // /**
+    //  * 该impl才是账号登录类，你可以进入这里随时进行账号登录！
+    //  */
+    // pub struct AccountLogin{}
+    // impl AccountLogin{
 
-    }
+    // }
 }
 /**
  * 许多在启动时可能需要用到的静态函数。（无需初始化，仅需直接调用。）
@@ -268,26 +268,16 @@ pub mod main_mod {
      */
     pub fn get_file_bit(file: String) -> Option<bool> {
         let path = std::path::Path::new(file.as_str());
-        if !path.exists() || path.exists() && path.is_dir() {
-            return None;
-        }
+        if !path.exists() || path.exists() && path.is_dir() { return None; }
         let data = pelite::FileMap::open(path);
-        if let Err(_) = data {
-            return None;
-        }
+        if let Err(_) = data { return None; }
         let data = data.unwrap();
         let file = pelite::PeFile::from_bytes(&data);
-        if let Err(_) = file {
-            return None;
-        }
+        if let Err(_) = file { return None; }
         let file = file.unwrap();
         match file {
-            pelite::Wrap::T64(_) => {
-                return Some(true);
-            }
-            pelite::Wrap::T32(_) => {
-                return Some(false);
-            }
+            pelite::Wrap::T64(_) => { return Some(true); }
+            pelite::Wrap::T32(_) => { return Some(false); }
         }
     }
     /**
@@ -295,38 +285,26 @@ pub mod main_mod {
      */
     pub fn get_file_version(file: String) -> Option<String> {
         let path = std::path::Path::new(file.as_str());
-        if !path.exists() || path.exists() && path.is_dir() {
-            return None;
-        }
+        if !path.exists() || path.exists() && path.is_dir() { return None; }
         let data = pelite::FileMap::open(path);
-        if let Err(_) = data {
-            return None;
-        }
+        if let Err(_) = data { return None; }
         let data = data.unwrap();
         let file = pelite::PeFile::from_bytes(&data);
-        if let Err(_) = file {
-            return None;
-        }
+        if let Err(_) = file { return None; }
         let file = file.unwrap();
         let file = file.resources();
-        if let Err(_) = file {
-            return None;
-        }
+        if let Err(_) = file { return None; }
         let fixed_version = file.unwrap().version_info();
-        if let Err(_) = fixed_version {
-            return None;
-        }
+        if let Err(_) = fixed_version { return None; }
         let fixed_version = fixed_version.unwrap().fixed();
-        if let None = fixed_version {
-            return None;
-        }
+        if let None = fixed_version { return None; }
         let fixed_version = fixed_version.unwrap();
         return Some(format!("{}.{}.{}.{}", 
-                    fixed_version.dwFileVersion.Major.to_string(),
-                    fixed_version.dwFileVersion.Minor.to_string(),
-                    fixed_version.dwFileVersion.Build.to_string(),
-                    fixed_version.dwFileVersion.Patch.to_string()
-                ));
+                        fixed_version.dwFileVersion.Major.to_string(),
+                        fixed_version.dwFileVersion.Minor.to_string(),
+                        fixed_version.dwFileVersion.Build.to_string(),
+                        fixed_version.dwFileVersion.Patch.to_string()
+                    ));
     }
 }
 /**
@@ -696,8 +674,8 @@ pub mod launcher_mod {
                         let root = root.unwrap();
                         let libr = root.get("libraries");
                         if let None = libr { continue; }
-                        let libr = libr.unwrap().as_array();
-                        if let None = libr { continue; }
+                        let libr = libr.unwrap().is_array();
+                        if !libr { continue; }
                         let mics = root.get("mainClass");
                         if let None = mics { continue; }
                         let mics = mics.unwrap().as_str();
@@ -901,7 +879,12 @@ pub mod launcher_mod {
         }
         let inh = get_mc_inherits_from(version_path.to_string(), "jar");
         if let None = inh { return None; }
-        let inh = inh.unwrap();
+        let mut inh = inh.unwrap();
+        if inh.eq(version_path) {
+            let inhj = get_mc_inherits_from(version_path.to_string(), "inheritsFrom");
+            if let None = inhj { return None; }
+            inh = inhj.unwrap().clone();
+        }
         let sha = root.get("downloads");
         if let None = sha { return None; }
         let sha = sha.unwrap().get("client");
@@ -912,7 +895,7 @@ pub mod launcher_mod {
         if let None = sha { return None; }
         let sha = sha.unwrap();
         let tmp = get_mc_real_path(inh, sha);
-        if let Some(e) = tmp { 
+        if let Some(e) = tmp {
             res.push_str(e.as_str());
         } else {
             res = res[0..res.rfind("$").unwrap()].to_string();
@@ -1166,12 +1149,12 @@ pub mod launcher_mod {
         /**
          * 启动游戏的私有函数，此处为检查是否有错。
          */
-        fn check_error(&self) -> Result<(), i32> {
+        fn check_error(&self) -> i32 {
             use super::some_const::*;
             let event_loop = winit::event_loop::EventLoop::new();
             let monitor = event_loop.available_monitors().next();
             if let None = monitor {
-                return Err(ERR_UNKNOWN_ERROR);
+                return ERR_UNKNOWN_ERROR;
             }
             let monitor = monitor.unwrap();
             let window_size = monitor.size();
@@ -1181,101 +1164,101 @@ pub mod launcher_mod {
             if self.account.get_online() == 0 {
                 let regu = regex::Regex::new("^[0-9a-f]{32}$");
                 if let Err(_) = regu {
-                    return Err(ERR_UNKNOWN_ERROR);
+                    return ERR_UNKNOWN_ERROR;
                 }
                 let regu = regu.unwrap();
                 if !regu.is_match(self.account.get_uuid()) {
-                    return Err(ERR_LAUNCH_ACCOUNT_USERUUID);
+                    return ERR_LAUNCH_ACCOUNT_USERUUID;
                 }
                 let regn = regex::Regex::new("^[a-zA-Z0-9]{3,16}$");
                 if let Err(_) = regn {
-                    return Err(ERR_UNKNOWN_ERROR);
+                    return ERR_UNKNOWN_ERROR;
                 }
                 let regn = regn.unwrap();
                 if !regn.is_match(self.account.get_name()) {
-                    return Err(ERR_LAUNCH_ACCOUNT_USERNAME);
+                    return ERR_LAUNCH_ACCOUNT_USERNAME;
                 }
             } else if self.account.get_online() == 1 {
                 let um = super::account_mod::UrlMethod::new("https://api.minecraftservices.com/minecraft/profile");
                 let ih = um.get(self.account.get_access_token());
                 if let None = ih {
-                    return Err(ERR_LAUNCH_ACCOUNT_ACCESS_TOKEN);
+                    return ERR_LAUNCH_ACCOUNT_ACCESS_TOKEN;
                 }
                 let json = serde_json::from_str::<serde_json::Value>(ih.unwrap().replace("\\/", "/").as_str());
                 if let Err(_) = json {
-                    return Err(ERR_UNKNOWN_ERROR);
+                    return ERR_UNKNOWN_ERROR;
                 }
                 let json = json.unwrap();
                 let json = json.as_object();
                 if let None = json {
-                    return Err(ERR_UNKNOWN_ERROR);
+                    return ERR_UNKNOWN_ERROR;
                 }
                 let json = json.unwrap();
                 let name = json.get("name");
                 if let None = name {
-                    return Err(ERR_LAUNCH_ACCOUNT_NO_LEGAL);
+                    return ERR_LAUNCH_ACCOUNT_NO_LEGAL;
                 }
                 let name = name.unwrap().as_str();
                 if let None = name {
-                    return Err(ERR_LAUNCH_ACCOUNT_NO_LEGAL);
+                    return ERR_LAUNCH_ACCOUNT_NO_LEGAL;
                 }
                 let name = name.unwrap();
                 let uuid = json.get("id");
                 if let None = uuid {
-                    return Err(ERR_LAUNCH_ACCOUNT_NO_LEGAL);
+                    return ERR_LAUNCH_ACCOUNT_NO_LEGAL;
                 }
                 let uuid = uuid.unwrap().as_str();
                 if let None = uuid {
-                    return Err(ERR_LAUNCH_ACCOUNT_NO_LEGAL);
+                    return ERR_LAUNCH_ACCOUNT_NO_LEGAL;
                 }
                 let uuid = uuid.unwrap();
                 if name != self.account.get_name() && uuid != self.account.get_name() {
-                    return Err(ERR_LAUNCH_ACCOUNT_ACCESS_TOKEN);
+                    return ERR_LAUNCH_ACCOUNT_ACCESS_TOKEN;
                 }
             } else if self.account.get_online() == 2 {
                 if self.account.get_base().is_empty() || !regex::Regex::new(r"^([A-Za-z0-9+/]{4})*([A-Za-z0-9+/]{3}=|[A-Za-z0-9+/]{2}==)?$").unwrap().is_match(self.account.get_base()) {
-                    return Err(ERR_LAUNCH_ACCOUNT_THIRDPARTY_BASE);
+                    return ERR_LAUNCH_ACCOUNT_THIRDPARTY_BASE;
                 }
                 let t = format!("{}/authserver/validate", self.account.get_url());
                 let pl = format!("{}{}{}", "{\"accesstoken\":\"", self.account.get_access_token(), "\"}");
                 let po = super::account_mod::UrlMethod::new(t.as_str());
                 let pl = po.post(pl.as_str(), true);
                 if let None = pl {
-                    return Err(ERR_LAUNCH_ACCOUNT_THIRDPARTY_ACCESS_TOKEN_OR_URL);
+                    return ERR_LAUNCH_ACCOUNT_THIRDPARTY_ACCESS_TOKEN_OR_URL;
                 }
             }
             let jpath = std::path::Path::new(self.java_path.as_str());
             if !jpath.exists() || !jpath.is_file() {
-                return Err(ERR_LAUNCH_JAVA_PATH);
+                return ERR_LAUNCH_JAVA_PATH;
             }
             let rpath = std::path::Path::new(self.root_path.as_str());
             if !rpath.exists() || !rpath.is_dir() {
-                return Err(ERR_LAUNCH_ROOT_PATH);
+                return ERR_LAUNCH_ROOT_PATH;
             }
             let vpath = std::path::Path::new(self.version_path.as_str());
             if !vpath.exists() || !vpath.is_dir() {
-                return Err(ERR_LAUNCH_VERSION_PATH);
+                return ERR_LAUNCH_VERSION_PATH;
             }
             let gpath = std::path::Path::new(self.game_path.as_str());
             if !gpath.exists() || !gpath.is_dir() {
-                return Err(ERR_LAUNCH_GAME_PATH);
+                return ERR_LAUNCH_GAME_PATH;
             }
             if self.window_width < 854 || self.window_width > (window_size.width as usize) {
-                return Err(ERR_LAUNCH_WIDTH);
+                return ERR_LAUNCH_WIDTH;
             }
             if self.window_height < 480 || self.window_height > (window_size.height as usize) {
-                return Err(ERR_LAUNCH_HEIGHT);
+                return ERR_LAUNCH_HEIGHT;
             }
             if self.min_memory > 1024 || self.min_memory < 256 {
-                return Err(ERR_LAUNCH_MIN_MEMORY);
+                return ERR_LAUNCH_MIN_MEMORY;
             }
             if self.max_memory < 1024 || self.max_memory > (mem as usize) {
-                return Err(ERR_LAUNCH_MAX_MEMORY);
+                return ERR_LAUNCH_MAX_MEMORY;
             }
             if self.custom_info == "" {
-                return Err(ERR_LAUNCH_CUSTOM_INFO);
+                return ERR_LAUNCH_CUSTOM_INFO;
             }
-            return Ok(());
+            return OK;
         }
         /**
          * 拼接1.12.2以上版本的全局参数
@@ -1734,8 +1717,9 @@ pub mod launcher_mod {
         F: Fn(Vec<&str>) + 'static
     {
         let res = LaunchGame::new(option, callback);
-        return if let Err(e) = res.check_error() {
-            Err(e)
+        let code = res.check_error();
+        return if code != 0 {
+            Err(code)
         } else {
             res.game_launch();
             Ok(())
