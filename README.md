@@ -67,7 +67,7 @@
 |C++|Qt Creator|
 |Java|Jetbrains Intellij IDEA|
 |C#|Jetbrains Rider|
-|Python|PyScripter|
+|Python|Jetbrains PyCharm|
 |Delphi|RAD Studio|
 |易语言|易语言|
 |Go|Jetbrains GoLand|

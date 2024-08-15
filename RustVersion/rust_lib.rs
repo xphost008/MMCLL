@@ -37,6 +37,8 @@ pub mod some_var {
     // pub static mut AUTHLIB_URL: String = String::new();
 }
 pub mod account_mod {
+    use std::io::Read;
+
     pub struct UrlMethod {
         url: String,
     }
@@ -48,7 +50,7 @@ pub mod account_mod {
         }
         pub fn post(&self, key: &str, that: bool) -> Option<String>{
             let http = reqwest::blocking::Client::new();
-            return if that {
+            if that {
                 let head = "application/x-www-form-urlencoded;charset=utf-8";
                 let res = http
                     .post(self.url.as_str())
@@ -84,20 +86,15 @@ pub mod account_mod {
             if let Err(_) = res { return None }
             let res = res.unwrap().text();
             if let Err(_) = res { return None }
-            return Some(res.unwrap().clone());
+            Some(res.unwrap().clone())
         }
-        pub fn get_default(&self) -> Option<String>{
+        pub fn get_default(&self) -> Option<Vec<u8>>{
             let res = reqwest::blocking::get(self.url.as_str());
             if let Err(_) = res { return None }
-            let res = res.unwrap().text();
-            if let Err(_) = res { return None }
-            return Some(res.unwrap().clone());
-        }
-        pub fn get_response(&self) -> Option<reqwest::blocking::Response> {
-            let http = reqwest::blocking::Client::new();
-            let res = http.get(self.url.as_str()).send();
+            let res = res.unwrap();
+            let res = res.bytes();
             if let Err(_) = res { return None; }
-            Some(res.unwrap())
+            Some(res.unwrap().to_vec())
         }
     }
     // /**
@@ -248,6 +245,8 @@ pub mod main_mod {
         let um = super::account_mod::UrlMethod::new(url);
         let metadata = um.get_default();
         if let None = metadata { return String::new(); }
+        let metadata = String::from_utf8(metadata.unwrap());
+        if let Err(_) = metadata { return String::new() }
         let base = base64::engine::general_purpose::STANDARD.encode(metadata.unwrap().replace("\\/", "/"));
         return base;
     }
@@ -275,9 +274,9 @@ pub mod main_mod {
         let file = pelite::PeFile::from_bytes(&data);
         if let Err(_) = file { return None; }
         let file = file.unwrap();
-        match file {
-            pelite::Wrap::T64(_) => { return Some(true); }
-            pelite::Wrap::T32(_) => { return Some(false); }
+        return match file {
+            pelite::Wrap::T64(_) => { Some(true) }
+            pelite::Wrap::T32(_) => { Some(false) }
         }
     }
     /**
@@ -299,7 +298,7 @@ pub mod main_mod {
         let fixed_version = fixed_version.unwrap().fixed();
         if let None = fixed_version { return None; }
         let fixed_version = fixed_version.unwrap();
-        return Some(format!("{}.{}.{}.{}", 
+        return Some(format!("{}.{}.{}.{}",
                         fixed_version.dwFileVersion.Major.to_string(),
                         fixed_version.dwFileVersion.Minor.to_string(),
                         fixed_version.dwFileVersion.Build.to_string(),
@@ -391,7 +390,10 @@ pub mod launcher_mod {
                     if super::some_var::MC_ROOT_JSON.is_empty() {
                         let url = super::account_mod::UrlMethod::new(v);
                         if let Some(e) = url.get_default() {
-                            super::some_var::MC_ROOT_JSON = e.clone();
+                            let e = String::from_utf8(e);
+                            if let Ok(f) = e {
+                                super::some_var::MC_ROOT_JSON = f.clone();
+                            }
                         }
                     }
                     if !super::some_var::MC_ROOT_JSON.is_empty(){
@@ -1106,7 +1108,7 @@ pub mod launcher_mod {
             self.additional_game.as_str()
         }
     }
-    pub struct LaunchGame {
+    struct LaunchGame {
         account: LaunchAccount,
         java_path: String,
         root_path: String,
@@ -1285,7 +1287,7 @@ pub mod launcher_mod {
             result.push("-Dos.name=Windows 10".to_string());
             result.push("-Dos.version=10.0".to_string());
             if !self.additional_jvm.is_empty() { 
-                let add_jvm: Vec<String> = (self.additional_jvm.split_whitespace().collect::<Vec<&str>>()).iter().map(|e| String::from(*e)).collect();
+                let add_jvm: Vec<String> = self.additional_jvm.split_whitespace().collect::<Vec<&str>>().iter().map(|e| String::from(*e)).collect();
                 result.extend(add_jvm.clone());
             }
             let judge_argu = judge_arguments(real_json.clone(), "jvm");
@@ -1355,7 +1357,7 @@ pub mod launcher_mod {
             if let Some(e) = ma {
                 if let Some(f) = e.as_str() {
                     if !f.is_empty() {
-                        let ma: Vec<String> = (f.split_whitespace().collect::<Vec<&str>>()).iter().map(|e| String::from(*e)).collect();
+                        let ma: Vec<String> = f.split_whitespace().collect::<Vec<&str>>().iter().map(|e| String::from(*e)).collect();
                         result.extend(ma);
                     }
                 }
@@ -1380,7 +1382,7 @@ pub mod launcher_mod {
                     .replace("${version_type}", format!("{}", self.custom_info).as_str());
             }
             if !self.additional_game.is_empty() {
-                let add_game: Vec<String> = (self.additional_game.split_whitespace().collect::<Vec<&str>>()).iter().map(|e| String::from(*e)).collect();
+                let add_game: Vec<String> = self.additional_game.split_whitespace().collect::<Vec<&str>>().iter().map(|e| String::from(*e)).collect();
                 result.extend(add_game.clone());
             }
             if result.contains(&"optifine.OptiFineForgeTweaker".to_string()) {
@@ -1430,7 +1432,7 @@ pub mod launcher_mod {
             result.extend(def_jvm.clone());
             result.extend(defn_jvm.clone());
             if !self.additional_jvm.is_empty() { 
-                let add_jvm: Vec<String> = (self.additional_jvm.split_whitespace().collect::<Vec<&str>>()).iter().map(|e| String::from(*e)).collect();
+                let add_jvm: Vec<String> = self.additional_jvm.split_whitespace().collect::<Vec<&str>>().iter().map(|e| String::from(*e)).collect();
                 result.extend(add_jvm.clone());
             }
             let judge_argu = judge_arguments(real_json.clone(), "jvm");
@@ -1438,7 +1440,7 @@ pub mod launcher_mod {
                 result.extend(e.clone());
             }
             if !self.additional_jvm.is_empty() { 
-                let add_jvm: Vec<String> = (self.additional_jvm.split_whitespace().collect::<Vec<&str>>()).iter().map(|e| String::from(*e)).collect();
+                let add_jvm: Vec<String> = self.additional_jvm.split_whitespace().collect::<Vec<&str>>().iter().map(|e| String::from(*e)).collect();
                 result.extend(add_jvm.clone());
             }
             let libs = get_mc_libs(real_json.clone(), self.root_path.as_str(), self.version_path.as_str());
@@ -1489,7 +1491,7 @@ pub mod launcher_mod {
                 result.push(self.window_height.to_string());
             }
             if !self.additional_game.is_empty() {
-                let add_game: Vec<String> = (self.additional_game.split_whitespace().collect::<Vec<&str>>()).iter().map(|e| String::from(*e)).collect();
+                let add_game: Vec<String> = self.additional_game.split_whitespace().collect::<Vec<&str>>().iter().map(|e| String::from(*e)).collect();
                 result.extend(add_game.clone());
             }
             for i in result.iter_mut() {
@@ -1528,7 +1530,7 @@ pub mod launcher_mod {
          * 如果没有错误，则会调用该函数。如果启动过程中出现不可预知的错误，则会直接panic掉！
          */
         fn game_launch(&self) {
-            let def_jvm: String = String::from("-XX:+UseG1GC -XX:-UseAdaptiveSizePolicy -XX:-OmitStackTraceInFastThrow -Dfml.ignoreInvalidMinecraftCertificates=True -Dfml.ignorePatchDiscrepancies=True -Dlog4j2.formatMsgNoLookups=True");
+            let def_jvm: String = String::from("-XX:+UseG1GC -XX:-UseAdaptiveSizePolicy -XX:-OmitStackTraceInFastThrow -Dfml.ignoreInvalidMinecraftCertificates=true -Dfml.ignorePatchDiscrepancies=true -Dlog4j2.formatMsgNoLookups=true");
             let defn_jvm: String = String::from("-XX:HeapDumpPath=MojangTricksIntelDriversForPerformance_javaw.exe_minecraft.exe.heapdump");
             let version_json_path = get_mc_real_path(self.version_path.clone(), ".json");
             if let None = version_json_path {
