@@ -8,7 +8,8 @@ pub fn start_launch(){
     		AccountLogin::new_offline_default("SSSteve"),
     		"D:\\Java\\bin\\java.exe",
     		"D:\\.minecraft",
-    		"D:\\.minecraft\\versions\\1.21"
+    		"D:\\.minecraft\\versions\\1.21",
+            "D:\\.minecraft\\versions\\1.21"
     	);
         let launch = launch_game(option, |command: Vec<&str>| {
             println!("参数拼接成功！正在为您启动游戏！");
