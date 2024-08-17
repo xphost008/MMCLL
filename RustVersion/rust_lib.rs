@@ -8,7 +8,7 @@
  */
 pub mod some_const {
     //版本号
-    pub const TLM_VERSION: &str = "0.0.1-Alpha";
+    pub const TLM_VERSION: &str = "0.0.6-Alpha";
     pub const OK: i32 = 0;  //完成
     pub const ERR_UNKNOWN_ERROR: i32 = 1;  //未知错误
     pub const ERR_LAUNCH_ACCOUNT_USERNAME: i32 = -1;  //账号名称格式错误
@@ -37,8 +37,6 @@ pub mod some_var {
     // pub static mut AUTHLIB_URL: String = String::new();
 }
 pub mod account_mod {
-    use std::io::Read;
-
     pub struct UrlMethod {
         url: String,
     }
@@ -166,7 +164,7 @@ pub mod main_mod {
     pub fn get_file(path: &str) -> Option<String> {
         let p = std::path::Path::new(path);
         let f = std::fs::read_to_string(p);
-        return if let Ok(e) = f { Some(e) } else { None }
+        if let Ok(e) = f { Some(e) } else { None }
     }
     /**
      * 将内容写出到文件
@@ -647,7 +645,7 @@ pub mod launcher_mod {
                 rt_ins.insert("minecraftArguments".to_string(), serde_json::Value::String(e.to_string()));
             }
         }
-        return return_some(rt_ins); 
+        return_some(rt_ins)
     }
     /**
      * 从一个文件夹中根据suffix获取一个准确的文件。
@@ -658,7 +656,7 @@ pub mod launcher_mod {
     pub fn get_mc_real_path(version_path: String, suffix: &str) -> Option<String> {
         let path = std::path::Path::new(version_path.as_str());
         if path.exists() && path.is_dir() {
-            let dir = walkdir::WalkDir::new(version_path.clone()).min_depth(1).max_depth(1);
+            let dir = walkdir::WalkDir::new(path.clone()).min_depth(1).max_depth(1);
             for i in dir.into_iter().filter_map(|e| e.ok()) {
                 let pa = i.path();
                 if pa.is_dir() { continue; }
@@ -862,16 +860,16 @@ pub mod launcher_mod {
             }
         }
         //fuck you！ optifine!
-        let mut temp = String::new();
+        let mut temp: Vec<String> = Vec::new();
         for i in no_low.into_iter(){
             if i.contains("optifine") {
-                temp = i.clone();
+                temp.push(i.clone());
                 continue;
             }
             no_opt.push(i.clone());
         }
         if !temp.is_empty() {
-            no_opt.push(temp.clone());
+            no_opt.extend(temp.clone());
         }
         //end you! optifine!
         for i in no_opt.into_iter() {
@@ -1019,6 +1017,7 @@ pub mod launcher_mod {
      * @param additional_game: 游戏额外game参数
      * @param pre_launch_script: 启动前执行脚本
      */
+    #[derive(Clone)]
     pub struct LaunchOption{
         account: LaunchAccount,
         java_path: String,
@@ -1045,7 +1044,7 @@ pub mod launcher_mod {
                 window_width: 480,
                 min_memory: 256,
                 max_memory: 4096,
-                custom_info: "Tank Launcher Module!".to_string(),
+                custom_info: "M M C L L".to_string(),
                 additional_jvm: String::new(),
                 additional_game: String::new(),
             }
@@ -1263,36 +1262,115 @@ pub mod launcher_mod {
             return OK;
         }
         /**
-         * 拼接1.12.2以上版本的全局参数
+         * 拼接全局参数
          */
-        fn put_113(&self, real_json: String, def_jvm: String, defn_jvm: String) -> Option<Vec<String>>{
+        fn put_arguments(&self, real_json: String, def_jvm: String, defn_jvm: String) -> Option<Vec<String>> {
             let root = serde_json::from_str::<serde_json::Value>(real_json.as_str());
             if let Err(_) = root { return None; }
-            let root = root.unwrap();
-            let root = root.as_object();
-            if let None = root { return None }
             let root = root.unwrap();
             let mcid = root.get("id");
             if let None = mcid { return None; }
             let mcid = mcid.unwrap().as_str();
             if let None = mcid { return None; }
-            let mcid = format!("\"{}\"", mcid.unwrap().to_string());
-            //定义一个新的Vec
+            let mcid = mcid.unwrap();
+            let main_class = root.get("mainClass");
+            if let None = main_class { return None; }
+            let main_class = main_class.unwrap().as_str();
+            if let None = main_class { return None; }
+            let main_class = main_class.unwrap();
+            let asset_index = root.get("assetIndex");
+            if let None = asset_index { return None; }
+            let asset_index = asset_index.unwrap().get("id");
+            if let None = asset_index { return None; }
+            let asset_index = asset_index.unwrap().as_str();
+            if let None = asset_index { return None; }
+            let asset_index = asset_index.unwrap();
             let mut result: Vec<String> = Vec::new();
-            //下列拼接JVM参数
             let def_jvm: Vec<String> = def_jvm.split_whitespace().collect::<Vec<&str>>().iter().map(|e| String::from(*e)).collect();
             let defn_jvm: Vec<String> = defn_jvm.split_whitespace().collect::<Vec<&str>>().iter().map(|e| String::from(*e)).collect();
             result.extend(def_jvm.clone());
             result.extend(defn_jvm.clone());
-            result.push("-Dos.name=Windows 10".to_string());
-            result.push("-Dos.version=10.0".to_string());
-            if !self.additional_jvm.is_empty() { 
+            if !self.additional_jvm.is_empty() {
                 let add_jvm: Vec<String> = self.additional_jvm.split_whitespace().collect::<Vec<&str>>().iter().map(|e| String::from(*e)).collect();
                 result.extend(add_jvm.clone());
             }
             let judge_argu = judge_arguments(real_json.clone(), "jvm");
-            if let None = judge_argu { return None; }
-            result.extend(judge_argu.unwrap());
+            if let Some(e) = judge_argu {
+                result.extend(e.clone());
+            }else{
+                result.push(String::from("-Djava.library.path=${natives_directory}"));
+                result.push(String::from("-cp"));
+                result.push(String::from("${classpath}"));
+            }
+            if !self.account.get_base().is_empty() {
+                unsafe {
+                    if super::some_var::AUTHLIB_PATH.is_empty(){
+                        panic!("You're not assign the AUTHLIB_PATH in some_var mod, please retry!")
+                    }
+                    let path = std::path::Path::new(super::some_var::AUTHLIB_PATH.as_str());
+                    if path.exists() && path.is_file() {
+                        result.push(format!("-javaagent:{}={}",
+                                            super::some_var::AUTHLIB_PATH.as_str(),
+                                            self.account.get_url()
+                        ));
+                        result.push("-Dauthlibinjector.side=client".to_string());
+                        result.push(format!("-Dauthlibinjector.yggdrasil.prefetched={}",
+                                            super::some_var::AUTHLIB_PATH.as_str()
+                        ));
+                    }else{
+                        panic!("You're AUTHLIB_PATH file is not exist, please retry!")
+                    }
+                }
+            }
+            result.push(format!("-Xmn{}m", self.min_memory));
+            result.push(format!("-Xmx{}m", self.max_memory));
+            result.push(main_class.to_string());
+            let mcag = root.get("minecraftArguments");
+            if let Some(judge_game) = mcag {
+                let judge_game = judge_game.as_str();
+                if let Some(judge_game) = judge_game {
+                    if !judge_game.is_empty() {
+                        let judge_game: Vec<String> = judge_game.split_whitespace().collect::<Vec<&str>>().iter().map(|e| String::from(*e)).collect();
+                        result.extend(judge_game);
+                    }
+                }
+                let judge_game = judge_arguments(real_json.clone(), "game");
+                if let Some(judge_game) = judge_game {
+                    result.extend(judge_game);
+                }
+            } else {
+                println!("断点1");
+                let judge_game = judge_arguments(real_json.clone(), "game");
+                if let Some(e) = judge_game {
+                    result.extend(e);
+                }else{
+                    return None;
+                }
+            }
+            if !self.additional_game.contains("--fullScreen") {
+                result.push("--width".to_string());
+                result.push(self.window_width.to_string());
+                result.push("--height".to_string());
+                result.push(self.window_height.to_string());
+            }
+            if !self.additional_game.is_empty() {
+                let add_game: Vec<String> = self.additional_game.split_whitespace().collect::<Vec<&str>>().iter().map(|e| String::from(*e)).collect();
+                result.extend(add_game.clone());
+            }
+            if result.contains(&"optifine.OptiFineForgeTweaker".to_string()) {
+                let temp_1 = result.iter().position(|x| x == &"optifine.OptiFineForgeTweaker".to_string()).unwrap();
+                result.remove(temp_1 - 1);
+                result.remove(temp_1 - 1);
+                result.push("--tweakClass".to_string());
+                result.push("optifine.OptiFineForgeTweaker".to_string());
+            }
+            if result.contains(&"optifine.OptiFineTweaker".to_string()) {
+                let temp_1 = result.iter().position(|x| x == &"optifine.OptiFineTweaker".to_string()).unwrap();
+                result.remove(temp_1 - 1);
+                result.remove(temp_1 - 1);
+                result.push("--tweakClass".to_string());
+                result.push("optifine.OptiFineTweaker".to_string());
+            }
             let libs = get_mc_libs(real_json.clone(), self.root_path.as_str(), self.version_path.as_str());
             if let None = libs { return None; }
             let libs = libs.unwrap();
@@ -1312,219 +1390,23 @@ pub mod launcher_mod {
                                 .replace("Pre", "")
                                 .as_str())
                     .replace("${classpath}", libs.as_str())
-                    .replace("${version_name}", mcid.as_str())
-                    .replace("${library_directory}", format!("{}\\libraries", self.root_path).as_str())
-                    .replace("${classpath_separator}", ";");  //MacOS 是 冒号【:】
-            }
-            if !self.account.get_base().is_empty() {
-                unsafe {
-                    if super::some_var::AUTHLIB_PATH.is_empty(){
-                        panic!("You're not assign the AUTHLIB_PATH in some_var mod, please retry!")
-                    }
-                    let path = std::path::Path::new(super::some_var::AUTHLIB_PATH.as_str());
-                    if path.exists() && path.is_file() {
-                        result.push(format!("-javaagent:{}={}",
-                            super::some_var::AUTHLIB_PATH.as_str(),
-                            self.account.get_url()
-                        ));
-                        result.push("-Dauthlibinjector.side=client".to_string());
-                        result.push(format!("-Dauthlibinjector.yggdrasil.prefetched={}",
-                            super::some_var::AUTHLIB_PATH.as_str()
-                        ));
-                    }else{
-                        panic!("You're AUTHLIB_PATH file is not exist, please retry!")
-                    }
-                }
-            }
-            result.push(format!("-Xmn{}m", self.min_memory));
-            result.push(format!("-Xmx{}m", self.max_memory));
-            //下列拼接game参数
-            let main_class = root.get("mainClass");
-            if let None = main_class { return None; }
-            let main_class = main_class.unwrap().as_str();
-            if let None = main_class { return None; }
-            result.push(main_class.unwrap().to_string());
-            let judge_game = judge_arguments(real_json.clone(), "game");
-            if let None = judge_game { return None; }
-            result.extend(judge_game.unwrap());
-            if !self.additional_game.contains("--fullScreen") {
-                result.push("--width".to_string());
-                result.push(self.window_width.to_string());
-                result.push("--height".to_string());
-                result.push(self.window_height.to_string());
-            }
-            let ma = root.get("minecraftArguments");
-            if let Some(e) = ma {
-                if let Some(f) = e.as_str() {
-                    if !f.is_empty() {
-                        let ma: Vec<String> = f.split_whitespace().collect::<Vec<&str>>().iter().map(|e| String::from(*e)).collect();
-                        result.extend(ma);
-                    }
-                }
-            }
-            let asset_index = root.get("assetIndex");
-            if let None = asset_index { return None; }
-            let asset_index = asset_index.unwrap().get("id");
-            if let None = asset_index { return None; }
-            let asset_index = asset_index.unwrap().as_str();
-            if let None = asset_index { return None; }
-            let asset_index = asset_index.unwrap();
-            for i in result.iter_mut() {
-                *i = i
-                    .replace("${auth_player_name}", self.account.get_name())
-                    .replace("${version_name}", mcid.as_str())
-                    .replace("${game_directory}", format!("{}", self.game_path).as_str())
-                    .replace("${assets_root}", format!("{}\\assets", self.root_path).as_str())
-                    .replace("${assets_index_name}", asset_index)
-                    .replace("${auth_uuid}", self.account.get_uuid())
-                    .replace("${auth_access_token}", self.account.get_access_token())
-                    .replace("${user_type}", self.account.get_atype())
-                    .replace("${version_type}", format!("{}", self.custom_info).as_str());
-            }
-            if !self.additional_game.is_empty() {
-                let add_game: Vec<String> = self.additional_game.split_whitespace().collect::<Vec<&str>>().iter().map(|e| String::from(*e)).collect();
-                result.extend(add_game.clone());
-            }
-            if result.contains(&"optifine.OptiFineForgeTweaker".to_string()) {
-                let temp_1 = result.iter().position(|x| x == &"optifine.OptiFineForgeTweaker".to_string()).unwrap();
-                result.remove(temp_1 - 1);
-                result.remove(temp_1 - 1);
-                result.push("--tweakClass".to_string());
-                result.push("optifine.OptiFineForgeTweaker".to_string());
-            }
-            if result.contains(&"optifine.OptiFineTweaker".to_string()) {
-                let temp_1 = result.iter().position(|x| x == &"optifine.OptiFineTweaker".to_string()).unwrap();
-                result.remove(temp_1 - 1);
-                result.remove(temp_1 - 1);
-                result.push("--tweakClass".to_string());
-                result.push("optifine.OptiFineTweaker".to_string());
-            }
-            Some(result)
-        }
-        /**
-         * 拼接1.12.2以下版本的全局参数
-         */
-        fn put_112(&self, real_json: String, def_jvm: String, defn_jvm: String) -> Option<Vec<String>> {
-            let root = serde_json::from_str::<serde_json::Value>(real_json.as_str());
-            if let Err(_) = root { return None; }
-            let root = root.unwrap();
-            let ma = root.get("minecraftArguments");
-            if let None = ma { return None; }
-            let ma = ma.unwrap().as_str();
-            if let None = ma { return None; }
-            let ma = ma.unwrap();
-            if ma.is_empty() { return None; }
-            let mcid = root.get("id");
-            if let None = mcid { return None; }
-            let mcid = mcid.unwrap().as_str();
-            if let None = mcid { return None; }
-            let mcid = mcid.unwrap();
-            let asset_index = root.get("assetIndex");
-            if let None = asset_index { return None; }
-            let asset_index = asset_index.unwrap().get("id");
-            if let None = asset_index { return None; }
-            let asset_index = asset_index.unwrap().as_str();
-            if let None = asset_index { return None; }
-            let asset_index = asset_index.unwrap();
-            let mut result: Vec<String> = Vec::new();
-            let def_jvm: Vec<String> = def_jvm.split_whitespace().collect::<Vec<&str>>().iter().map(|e| String::from(*e)).collect();
-            let defn_jvm: Vec<String> = defn_jvm.split_whitespace().collect::<Vec<&str>>().iter().map(|e| String::from(*e)).collect();
-            result.extend(def_jvm.clone());
-            result.extend(defn_jvm.clone());
-            if !self.additional_jvm.is_empty() { 
-                let add_jvm: Vec<String> = self.additional_jvm.split_whitespace().collect::<Vec<&str>>().iter().map(|e| String::from(*e)).collect();
-                result.extend(add_jvm.clone());
-            }
-            let judge_argu = judge_arguments(real_json.clone(), "jvm");
-            if let Some(e) = judge_argu {
-                result.extend(e.clone());
-            }
-            if !self.additional_jvm.is_empty() { 
-                let add_jvm: Vec<String> = self.additional_jvm.split_whitespace().collect::<Vec<&str>>().iter().map(|e| String::from(*e)).collect();
-                result.extend(add_jvm.clone());
-            }
-            let libs = get_mc_libs(real_json.clone(), self.root_path.as_str(), self.version_path.as_str());
-            if let None = libs { return None; }
-            let libs = libs.unwrap();
-            result.push(format!("-Djava.library.path={}\\{}-TLM-natives",
-                self.version_path, 
-                super::main_mod::extract_file_name(self.version_path.as_str())));
-            result.push("-cp".to_string());
-            result.push(libs);
-            if !self.account.get_base().is_empty() {
-                unsafe {
-                    if super::some_var::AUTHLIB_PATH.is_empty(){
-                        panic!("You're not assign the AUTHLIB_PATH in some_var mod, please retry!")
-                    }
-                    let path = std::path::Path::new(super::some_var::AUTHLIB_PATH.as_str());
-                    if path.exists() && path.is_file() {
-                        result.push(format!("-javaagent:{}={}",
-                            super::some_var::AUTHLIB_PATH.as_str(),
-                            self.account.get_url()
-                        ));
-                        result.push("-Dauthlibinjector.side=client".to_string());
-                        result.push(format!("-Dauthlibinjector.yggdrasil.prefetched={}",
-                            super::some_var::AUTHLIB_PATH.as_str()
-                        ));
-                    }else{
-                        panic!("You're AUTHLIB_PATH file is not exist, please retry!")
-                    }
-                }
-            }
-            result.push(format!("-Xmn{}m", self.min_memory));
-            result.push(format!("-Xmx{}m", self.max_memory));
-            let main_class = root.get("mainClass");
-            if let None = main_class { return None; }
-            let main_class = main_class.unwrap().as_str();
-            if let None = main_class { return None; }
-            result.push(main_class.unwrap().to_string());
-            let judge_game = judge_arguments(real_json.clone(), "game");
-            if let Some(s) = judge_game {
-                result.extend(s.clone());
-            }
-            let ma: Vec<String> = ma.split_whitespace().collect::<Vec<&str>>().iter().map(|e| String::from(*e)).collect();
-            result.extend(ma);
-            if !self.additional_game.contains("--fullScreen") {
-                result.push("--width".to_string());
-                result.push(self.window_width.to_string());
-                result.push("--height".to_string());
-                result.push(self.window_height.to_string());
-            }
-            if !self.additional_game.is_empty() {
-                let add_game: Vec<String> = self.additional_game.split_whitespace().collect::<Vec<&str>>().iter().map(|e| String::from(*e)).collect();
-                result.extend(add_game.clone());
-            }
-            for i in result.iter_mut() {
-                *i = i
-                    .replace("${auth_player_name}", self.account.get_name())
-                    .replace("${auth_session}", self.account.get_uuid())
-                    .replace("${game_directory}", format!("{}", self.game_path).as_str())
-                    .replace("${game_assets}", format!("{}\\assets\\virtual\\legacy", self.root_path).as_str())
-                    .replace("${assets_root}", format!("{}\\assets", self.root_path).as_str())
                     .replace("${version_name}", mcid)
+                    .replace("${library_directory}", format!("{}\\libraries", self.root_path).as_str())
+                    .replace("${auth_player_name}", self.account.get_name())
+                    .replace("${game_directory}", format!("{}", self.game_path).as_str())
+                    .replace("${assets_root}", format!("{}\\assets", self.root_path).as_str())
                     .replace("${assets_index_name}", asset_index)
                     .replace("${auth_uuid}", self.account.get_uuid())
+                    .replace("${uuid}", self.account.get_uuid())
                     .replace("${auth_access_token}", self.account.get_access_token())
-                    .replace("${user_properties}", "{}")
                     .replace("${user_type}", self.account.get_atype())
-                    .replace("${version_type}", self.custom_info.as_str())
+                    .replace("${version_type}", format!("{}", self.custom_info).as_str())
+                    .replace("${auth_session}", self.account.get_uuid())
+                    .replace("${game_assets}", format!("{}\\assets\\virtual\\legacy", self.root_path).as_str())
+                    .replace("${user_properties}", "{}")
                     .replace("${classpath_separator}", ";");  //MacOS 是 冒号【:】
             }
-            if result.contains(&"optifine.OptiFineForgeTweaker".to_string()) {
-                let temp_1 = result.iter().position(|x| x == &"optifine.OptiFineForgeTweaker".to_string()).unwrap();
-                result.remove(temp_1 - 1);
-                result.remove(temp_1 - 1);
-                result.push("--tweakClass".to_string());
-                result.push("optifine.OptiFineForgeTweaker".to_string());
-            }
-            if result.contains(&"optifine.OptiFineTweaker".to_string()) {
-                let temp_1 = result.iter().position(|x| x == &"optifine.OptiFineTweaker".to_string()).unwrap();
-                result.remove(temp_1 - 1);
-                result.remove(temp_1 - 1);
-                result.push("--tweakClass".to_string());
-                result.push("optifine.OptiFineTweaker".to_string());
-            }
-            Some(result)
+            return Some(result);
         }
         /**
          * 如果没有错误，则会调用该函数。如果启动过程中出现不可预知的错误，则会直接panic掉！
@@ -1570,12 +1452,9 @@ pub mod launcher_mod {
                 panic!("Cannot find id or mainClass in inheritsFrom json, please retry!")
             }
             let real_json = real_json.unwrap();
-            let mut param = self.put_113(real_json.clone(), def_jvm.clone(), defn_jvm.clone());
+            let param = self.put_arguments(real_json.clone(), def_jvm.clone(), defn_jvm.clone());
             if let None = param {
-                param = self.put_112(real_json.clone(), def_jvm.clone(), defn_jvm.clone());
-                if let None = param {
-                    panic!("Cannot join all param in your params, please retry!")
-                }
+                panic!("Cannot join all param in your params, please retry!")
             }
             let mut param = param.unwrap();
             param.splice(0..0, [self.java_path.clone()]);
@@ -1720,7 +1599,7 @@ pub mod launcher_mod {
     {
         let res = LaunchGame::new(option, callback);
         let code = res.check_error();
-        return if code != 0 {
+        if code != 0 {
             Err(code)
         } else {
             res.game_launch();
