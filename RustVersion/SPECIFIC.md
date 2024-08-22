@@ -9,6 +9,16 @@
 
 里面基本上都有注释啦！
 ```
+#### 切记！里面有三个值需要注意：
+
+```
+pub const USER_AGENT: &str = "MMCLL/<版本>"
+	这个常量需要替换成你的【<启动器名称>/<启动器版本>】，并且实时更新。各位也可以把该常量转移到变量里使用。（默认是MMCLL/<MMCLL的版本>）
+pub const LAUNCHER_NAME: &str = "MMCLL"
+	这个常量需要替换成你的【<启动器名称>】。在使用默认方式启动时，会自动将【${launcher_name}】替换成该值。
+pub const LAUNCHER_NAME: &str = "<版本>"
+	请自觉将此值改成你的【<启动器版本>】，并且实时更新。因为在默认方式启动替换（${launcher_version}）时用到这个值。各位可以自行去put_arguments查看逻辑以修改。
+```
 
 ## rust_lib::some_var
 
@@ -253,15 +263,62 @@ impl UrlMethod
     	对网址进行默认抓取。
     	如果网址返回值为html，则也会返回html。如果网址为二进制下载文件，则返回下载内容。
 
-    pub fn get_response(&self) -> Option<reqwest::blocking::Response>
-    	与上述不一样，这个是获取网络响应。
-    	可以用于保存网上下载的二进制文件。
+    pub fn get_default(&self) -> Option<Vec<u8>>
+    	对网址进行默认抓取。
+    	如果网址返回值为html，则也会返回html。如果网址为二进制下载文件，则返回下载内容。
+		该函数返回值改成了Vec<u8>字节数组，这意味着它不仅可以获取网络上的文本资源，还可以保存二进制文件。
+		也就是既可以下载，也可以保存到内存里。
+
+	pub async fn post_async(&self, key: &str, that: bool) -> Option<String>
+		异步post。函数内容与post几乎一样，唯一不同的就是添加了await进行异步。
+
+	pub async fn get_async(&self, key: &str) -> Option<String>
+		异步get，但是有key验证参数。
+
+	pub async fn get_default_async(&self) -> Option<Vec<u8>>
+		异步get_default，返回Vec<u8>。
 
 impl AccountResult
-	用于获取账号登录返回值。
-	暂未实现，暂不公开其描述！
-
+	该实现构造函数为私有，如果你需要给其赋值，请自行添加pub关键字。
+	微软正版登录会有：name、uuid、access_token、refresh_token（4个字段）
+	第三方登录会有：name、uuid、access_token、client_token、base（5个字段）
+	name: String
+		账号名称
+	uuid: String
+		账号uuid
+	access_token: String
+		账号验证密钥
+	refresh_token: String
+		账号刷新密钥
+	client_token: String
+		第三方登录的客户端密钥（通常是UUID）
+	base: String
+		第三方元数据的base64编码
+	其中，refresh_token有一个set方法，但是是私有的。
+	其余的仅能get。
 impl AccountLogin
-	暂未实现，暂不公开其描述！
+	本类里面全部都是【异步函数】，你可能需要使用tokio自主实现并调用运行。
+
+	pub fn new(client_id: &str) -> Self
+		构建一个AccountLogin类，填入一个client_id字段。
+		client_id字段相信每个制作启动器的玩家都知道什么意思吧！这里不再赘述。
+	
+    pub async fn get_user_code(&self) -> Result<(String, String), i32>
+		获取用户代码。
+		通过client_id获取到一个用户代码用于登录，这个函数为两个返回值，另一个返回值是device_code。设备代码。
+		当你获取了用户代码后，你可以循环通过device_code获取到access_token，但是请间隔5s获取一次。
+		15分钟后，如果用户未登录完成，则抛出报错。
+	
+    async fn microsoft(&self, access_token: &str) -> Result<AccountResult, i32>
+		私有函数，通过access_token获取到AccountResult实现。
+
+    pub async fn login_microsoft(&self, device_code: String) -> Result<AccountResult, i32>
+		通过device_code获取到AccountResult实现。
+		你可以循环通过device_code然后实现该函数。该函数会返回一个AccountResult，如果不对，则会返回i32类型。
+		其中，i32类型描述了此时的错误信息。请参阅some_const常量池。
+
+	pub async fn refresh_microsoft(&self, refresh_token: String) -> Result<AccountResult, i32>
+		通过refresh_token获取到AccountResult实现
+		该函数用于刷新你的access_token。你可以从第一次登录微软账号时，获取到的refresh_token进行刷新。
 ```
 

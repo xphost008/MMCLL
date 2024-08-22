@@ -7,10 +7,12 @@
  * 部分常量值，在程序的任意位置均可直接调用。
  */
 pub mod some_const {
-    //版本号
-    pub const TLM_VERSION: &str = "0.0.6-Alpha";
+    pub const LAUNCHER_NANE: &str = "MMCLL";  //在使用此库时，请自觉将此值改成你的【<启动器名称>】。在使用默认方式启动时，会自动将【${launcher_name}】替换成该值。
+    pub const LAUNCHER_VERSION: &str = "0.0.1-Alpha-7"; //在使用此库时，请自觉将此值改成你的【<启动器版本>】【可以加上Alpha、Beta、Pre三个值，因为在启动替换（${launcher_version}）时用到这个值。不过各位可以自行去函数put_arguments进行修改以适配该值。】
+    pub const USER_AGENT: &str = "MMCLL/0.0.1.7";  //在使用此库时，请自觉将此值改成你的【<启动器名称>/<启动器版本>】。
     pub const OK: i32 = 0;  //完成
     pub const ERR_UNKNOWN_ERROR: i32 = 1;  //未知错误
+    //以下是启动游戏时的部分错误代码
     pub const ERR_LAUNCH_ACCOUNT_USERNAME: i32 = -1;  //账号名称格式错误
     pub const ERR_LAUNCH_ACCOUNT_USERUUID: i32 = -2;  //账号UUID格式错误
     pub const ERR_LAUNCH_ACCOUNT_ACCESS_TOKEN: i32 = -3;  //账号AccessToken错误
@@ -26,6 +28,20 @@ pub mod some_const {
     pub const ERR_LAUNCH_MIN_MEMORY: i32 = -13;  //最小内存错误（小于256或大于1024）
     pub const ERR_LAUNCH_MAX_MEMORY: i32 = -13;  //最大内存错误（小于1024或大于系统内存）
     pub const ERR_LAUNCH_CUSTOM_INFO: i32 = -14;  //自定义信息错误（未填写，必须要个默认值！）
+    //以下是账号登录时的部分错误代码
+    pub const ERR_LOGIN_CANNOT_GET_USER_CODE: i32 = -1;  //未成功获取用户代码
+    pub const ERR_LOGIN_DEVICE_CODE_INVALID: i32 = -2;  //微软登录，暂未完成登录。
+    pub const ERR_LOGIN_TIMEOUT: i32 = -3;  //微软登录，登录超时（15分钟未完成登录），请重试！
+    pub const ERR_LOGIN_REFRESH_TOKEN_EXPIRE: i32 = -4;  //微软登录，刷新密钥也同样过期了。
+    pub const ERR_LOGIN_XBOX_LIVE_INVALID: i32 = -5;  //在进行xbox登录时出现了错误，可能是没挂vβn的原因。
+    pub const ERR_LOGIN_XSTS_LIVE_INVALID: i32 = -6;  //在进行xsts登录时出现了错误，可能是没挂vβn的原因。
+    pub const ERR_LOGIN_XSTS_NO_XBOX: i32 = -7;  //在进行xsts登录时，由于该账户没有xbox账号，你可能需要自己注册一个。
+    pub const ERR_LOGIN_XSTS_ILLEGAL: i32 = -8;  //在进行xsts登录时，由于该国家/禁止被禁止，无法登录。
+    pub const ERR_LOGIN_XSTS_NO_ADULT: i32 = -9;  //该账号需要成人验证（韩国）。
+    pub const ERR_LOGIN_XSTS_UNDER_18: i32 = -10;  //该账号设置未满18周岁，需要成人将该账户添加到家庭组中。
+    pub const ERR_LOGIN_XBOX_XSTS_USERCODE: i32 = -11;  //你请求的xbox usercode与xsts usercode二者不一致，请重新尝试！
+    pub const ERR_LOGIN_MC_INVALID: i32 = -12;  //在进行mc登录时出现了错误，可能是没挂vβn的原因。
+    pub const ERR_LOGIN_NO_MINECRAFT: i32 = -13;  //该账号暂未购买mc，请重新尝试！
 }
 /**
  * 部分全局变量值。在需要的时候可以使用unsafe包裹住该变量以便使用，赋值和引用均可。但是你需要为你赋过的值负责！。
@@ -43,9 +59,13 @@ pub mod account_mod {
     impl UrlMethod {
         pub fn new(url: &str) -> Self {
             Self {
-                url: url.to_string()
+                url: url.to_string(),
             }
         }
+        /**
+         * 以下三个为普通的网络请求，会阻塞主线程。
+         * 这里是post
+         */
         pub fn post(&self, key: &str, that: bool) -> Option<String>{
             let http = reqwest::blocking::Client::new();
             if that {
@@ -53,106 +73,381 @@ pub mod account_mod {
                 let res = http
                     .post(self.url.as_str())
                     .timeout(std::time::Duration::from_secs(100))
+                    .header(reqwest::header::USER_AGENT, super::some_const::USER_AGENT)
                     .header(reqwest::header::CONTENT_TYPE, head)
                     .body(key.to_string())
-                    .send();
-                if let Err(_) = res { return None }
-                let res = res.unwrap().text();
-                if let Err(_) = res { return None }
-                Some(res.unwrap().clone())
+                    .send()
+                    .ok()?
+                    .text()
+                    .ok()?;
+                Some(res.clone())
             } else {
                 let head = "application/json";
                 let res = http
                     .post(self.url.as_str())
                     .timeout(std::time::Duration::from_secs(100))
+                    .header(reqwest::header::USER_AGENT, super::some_const::USER_AGENT)
                     .header(reqwest::header::CONTENT_TYPE, head)
                     .header(reqwest::header::ACCEPT, head)
                     .body(key.to_string())
-                    .send();
-                if let Err(_) = res { return None }
-                let res = res.unwrap().text();
-                if let Err(_) = res { return None }
-                Some(res.unwrap().clone())
+                    .send()
+                    .ok()?
+                    .text()
+                    .ok()?;
+                Some(res.clone())
             }
         }
+        /**
+         * 这里是get，但是有一个验证key
+         */
         pub fn get(&self, key: &str) -> Option<String>{
             let http = reqwest::blocking::Client::new();
             let res = http
                 .get(self.url.as_str())
+                .header(reqwest::header::USER_AGENT, super::some_const::USER_AGENT)
                 .header(reqwest::header::AUTHORIZATION, format!("Bearer {}", key))
-                .send();
-            if let Err(_) = res { return None }
-            let res = res.unwrap().text();
-            if let Err(_) = res { return None }
-            Some(res.unwrap().clone())
+                .send()
+                .ok()?
+                .text()
+                .ok()?;
+            Some(res.clone())
         }
+        /**
+         * 这里是获取默认文本或二进制文件的。
+         * 返回值为Vec<u8>
+         */
         pub fn get_default(&self) -> Option<Vec<u8>>{
-            let res = reqwest::blocking::get(self.url.as_str());
-            if let Err(_) = res { return None }
-            let res = res.unwrap();
-            let res = res.bytes();
-            if let Err(_) = res { return None; }
-            Some(res.unwrap().to_vec())
+            let http = reqwest::blocking::Client::new();
+            let res = http
+                .get(self.url.as_str())
+                .header(reqwest::header::USER_AGENT, super::some_const::USER_AGENT)
+                .send()
+                .ok()?
+                .bytes()
+                .ok()?;
+            Some(res.to_vec())
+        }
+        /**
+         * 以下为异步的网络请求。
+         */
+        pub async fn post_async(&self, key: &str, that: bool) -> Option<String>{
+            let http = reqwest::Client::new();
+            if that {
+                let res = http
+                    .post(self.url.as_str())
+                    .timeout(std::time::Duration::from_secs(100))
+                    .header(reqwest::header::USER_AGENT, super::some_const::USER_AGENT)
+                    .header(reqwest::header::CONTENT_TYPE, "application/x-www-form-urlencoded")
+                    .body(key.to_string())
+                    .send()
+                    .await
+                    .ok()?
+                    .text()
+                    .await
+                    .ok()?;
+                Some(res.clone())
+            } else {
+                let res = http
+                    .post(self.url.as_str())
+                    .timeout(std::time::Duration::from_secs(100))
+                    .header(reqwest::header::USER_AGENT, super::some_const::USER_AGENT)
+                    .header(reqwest::header::CONTENT_TYPE, "application/json")
+                    .header(reqwest::header::ACCEPT, "application/json")
+                    .body(key.to_string())
+                    .send()
+                    .await
+                    .ok()?
+                    .text()
+                    .await
+                    .ok()?;
+                Some(res.clone())
+            }
+        }
+        pub async fn get_async(&self, key: &str) -> Option<String>{
+            let http = reqwest::Client::new();
+            let res = http
+                .get(self.url.as_str())
+                .header(reqwest::header::USER_AGENT, super::some_const::USER_AGENT)
+                .header(reqwest::header::AUTHORIZATION, format!("Bearer {}", key))
+                .send()
+                .await
+                .ok()?
+                .text()
+                .await
+                .ok()?;
+            Some(res.clone())
+        }
+        pub async fn get_default_async(&self) -> Option<Vec<u8>>{
+            let http = reqwest::Client::new();
+            let res = http
+                .get(self.url.as_str())
+                .header(reqwest::header::USER_AGENT, super::some_const::USER_AGENT)
+                .send()
+                .await
+                .ok()?
+                .bytes()
+                .await
+                .ok()?;
+            Some(res.to_vec())
         }
     }
-    // /**
-    //  * 账号返回类，每次登录账号都会返回一个该类。
-    //  */
-    // struct AccountResult{
-    //     user_name: String,
-    //     user_uuid: String,
-    //     user_access_token: String,
-    //     user_refresh_token: String,
-    //     user_client_token: String,
-    // }
-    // impl AccountResult{
-    //     fn new() -> Self{
-    //         Self{
-    //             user_name: String::new(),
-    //             user_uuid: String::new(),
-    //             user_access_token: String::new(),
-    //             user_refresh_token: String::new(),
-    //             user_client_token: String::new(),
-    //         }
-    //     }
-    //     fn set_user_name(&mut self, user_name: String){
-    //         self.user_name = user_name.clone();
-    //     }
-    //     fn set_user_uuid(&mut self, user_uuid: String){
-    //         self.user_uuid = user_uuid.clone();
-    //     }
-    //     fn set_user_access_token(&mut self, user_access_token: String){
-    //         self.user_access_token = user_access_token.clone();
-    //     }
-    //     fn set_user_refresh_token(&mut self, user_refresh_token: String){
-    //         self.user_refresh_token = user_refresh_token.clone();
-    //     }
-    //     fn set_user_client_token(&mut self, user_client_token: String){
-    //         self.user_client_token = user_client_token.clone();
-    //     }
-    //     pub fn get_user_name(&self) -> String{
-    //         return self.user_name.clone();
-    //     }
-    //     pub fn get_user_uuid(&self) -> String{
-    //         return self.user_uuid.clone();
-    //     }
-    //     pub fn get_user_access_token(&self) -> String{
-    //         return self.user_access_token.clone();
-    //     }
-    //     pub fn get_user_refresh_token(&self) -> String{
-    //         return self.user_refresh_token.clone();
-    //     }
-    //     pub fn get_user_client_token(&self) -> String{
-    //         return self.user_client_token.clone();
-    //     }
-    // }
-    // /**
-    //  * 该impl才是账号登录类，你可以进入这里随时进行账号登录！
-    //  */
-    // pub struct AccountLogin{}
-    // impl AccountLogin{
-
-    // }
+    pub struct AccountResult {
+        name: String,
+        uuid: String,
+        access_token: String,
+        refresh_token: String,
+        client_token: String,
+        base: String
+    }
+    impl AccountResult {
+        fn new(name: &str, uuid: &str, access_token: &str, refresh_token: &str, client_token: &str, base: &str) -> Self {
+            Self {
+                name: name.to_string(),
+                uuid: uuid.to_string(),
+                access_token: access_token.to_string(),
+                refresh_token: refresh_token.to_string(),
+                client_token: client_token.to_string(),
+                base: base.to_string()
+            }
+        }
+        pub fn get_name(&self) -> String {
+            return self.name.clone();
+        }
+        pub fn get_uuid(&self) -> String {
+            return self.uuid.clone();
+        }
+        pub fn get_access_token(&self) -> String {
+            return self.access_token.clone();
+        }
+        pub fn get_refresh_token(&self) -> String {
+            return self.refresh_token.clone();
+        }
+        pub fn get_client_token(&self) -> String {
+            return self.client_token.clone();
+        }
+        pub fn get_base(&self) -> String {
+            return self.base.clone();
+        }
+        fn set_refresh_token(&mut self, refresh_token: &str) {
+            self.refresh_token = refresh_token.to_string();
+        }
+    }
+    pub struct AccountLogin {
+        client_id: String,
+    }
+    impl AccountLogin{
+        /**
+         * 微软登录与外置登录均使用异步编写手法，各位可以使用tokio或futures运行。
+         * 该new函数需要传入一个client_id值，该值请自行查阅wiki.vg或者本仓库文档进行查阅。
+         */
+        pub fn new(client_id: &str) -> Self {
+            Self { client_id: client_id.to_string() }
+        }
+        /**
+         * 这里是获取用户代码的，返回两个值（用户代码、设备代码），各位需要自行使用浏览器打开【https://microsoft.com/link 】进行登录。
+         * 如果获取到了网址，但是在解析JSON时失败了，会直接panic掉！因此你应该需要一个catch_unwind来包围住这个函数。
+         * 剩余的json里的4个值，分别是：
+         * verification_uri: https://www.microsoft.com/link
+         * expires_in: 900
+         * interval: 5
+         * message: 中文信息
+         * 各位可以自行赋值，因此无需返回。
+         */
+        pub async fn get_user_code(&self) -> Result<(String, String), i32> {
+            const URL: &str = "https://login.microsoftonline.com/consumers/oauth2/v2.0/devicecode?mkt=zh-CN";
+            let k1 = format!("client_id={}&scope=XboxLive.signin%20offline_access", self.client_id.clone());
+            let client = UrlMethod::new(URL);
+            let res = client.post_async(k1.as_str(), true)
+                .await
+                .map_or(Err(super::some_const::ERR_LOGIN_CANNOT_GET_USER_CODE), |s| Ok(s.clone()))?;
+            let login = serde_json::from_str::<serde_json::Value>(res.as_str()).map_err(|_| super::some_const::ERR_LOGIN_CANNOT_GET_USER_CODE )?;
+            let user_code = login.get("user_code")
+                .ok_or(super::some_const::ERR_LOGIN_CANNOT_GET_USER_CODE )?
+                .as_str()
+                .ok_or(super::some_const::ERR_LOGIN_CANNOT_GET_USER_CODE )?;
+            let device_code = login.get("device_code")
+                .ok_or(super::some_const::ERR_LOGIN_CANNOT_GET_USER_CODE )?
+                .as_str()
+                .ok_or(super::some_const::ERR_LOGIN_CANNOT_GET_USER_CODE )?;
+            Ok((user_code.to_string(), device_code.to_string()))
+        }
+        /**
+         * 登录的时候是刷新还是请求，这里是私有函数。
+         */
+        async fn microsoft(&self, access_token: &str) -> Result<AccountResult, i32> {
+            use super::some_const::*;
+            const XBOX_LIVE: &str = "https://user.auth.xboxlive.com/user/authenticate";
+            const XSTS_LIVE: &str = "https://xsts.auth.xboxlive.com/xsts/authorize";
+            const MC_LIVE: &str = "https://api.minecraftservices.com/authentication/login_with_xbox";
+            const VERIFY: &str = "https://api.minecraftservices.com/minecraft/profile";
+            let k2 = format!("{}{}{}", "{\"Properties\":{\"AuthMethod\":\"RPS\",\"SiteName\":\"user.auth.xboxlive.com\",\"RpsTicket\":\"d=", access_token, "\"},\"RelyingParty\":\"http://auth.xboxlive.com\",\"TokenType\":\"JWT\"}");
+            let t2 = UrlMethod::new(XBOX_LIVE)
+                .post_async(k2.as_str(), false)
+                .await
+                .ok_or(ERR_LOGIN_XBOX_LIVE_INVALID)?;
+            let j2 = serde_json::from_str::<serde_json::Value>(t2.as_str())
+                .map_err(|_| 21)?;
+            let w2 = j2
+                .get("Token")
+                .ok_or(22)?
+                .as_str()
+                .ok_or(23)?;
+            let uhs_xbox = j2
+                .get("DisplayClaims")
+                .ok_or(24)?
+                .get("xui")
+                .ok_or(25)?
+                .get(0)
+                .ok_or(26)?
+                .get("uhs")
+                .ok_or(27)?
+                .as_str()
+                .ok_or(28)?;
+            let k3 = format!("{}{}{}", "{\"Properties\":{\"SandboxId\":\"RETAIL\",\"UserTokens\":[\"", w2, "\"]},\"RelyingParty\":\"rp://api.minecraftservices.com/\",\"TokenType\":\"JWT\"}");
+            let t3 = UrlMethod::new(XSTS_LIVE)
+                .post_async(k3.as_str(), false)
+                .await
+                .ok_or(ERR_LOGIN_XSTS_LIVE_INVALID)?;
+            let j3 = serde_json::from_str::<serde_json::Value>(t3.as_str()).map_err(|_| 29)?;
+            let w3 = j3
+                .get("Token");
+            let ww3: &str;
+            if let Some(w) = w3 {
+                ww3 = w
+                    .as_str()
+                    .ok_or(30)?;
+            }else{
+                let ww3 = j3
+                    .get("XErr")
+                    .ok_or(31)?
+                    .as_i64()
+                    .ok_or(32)?;
+                if ww3 == 2148916233 {
+                    return Err(ERR_LOGIN_XSTS_NO_XBOX);
+                } else if ww3 == 2148916235 {
+                    return Err(ERR_LOGIN_XSTS_ILLEGAL);
+                } else if ww3 == 2148916236 || ww3 == 2148916237 {
+                    return Err(ERR_LOGIN_XSTS_NO_ADULT);
+                } else if ww3 == 2148916238 {
+                    return Err(ERR_LOGIN_XSTS_UNDER_18);
+                } else {
+                    return Err(33);
+                }
+            }
+            let uhs_xsts = j3
+                .get("DisplayClaims")
+                .ok_or(34)?
+                .get("xui")
+                .ok_or(35)?
+                .get(0)
+                .ok_or(36)?
+                .get("uhs")
+                .ok_or(37)?
+                .as_str()
+                .ok_or(38)?;
+            if uhs_xbox != uhs_xsts {
+                return Err(ERR_LOGIN_XBOX_XSTS_USERCODE);
+            }
+            let k4 = format!("{}{}{}{}{}", "{\"identityToken\":\"XBL3.0 x=", uhs_xsts, ";", ww3, "\"}");
+            let t4 = UrlMethod::new(MC_LIVE)
+                .post_async(k4.as_str(), false)
+                .await
+                .ok_or(ERR_LOGIN_XBOX_LIVE_INVALID)?;
+            let j4 = serde_json::from_str::<serde_json::Value>(t4.as_str()).map_err(|_| 39)?;
+            let w4 = j4
+                .get("access_token")
+                .ok_or(40)?
+                .as_str()
+                .ok_or(41)?;
+            let t5 = UrlMethod::new(VERIFY)
+                .get_async(w4)
+                .await
+                .ok_or(ERR_LOGIN_MC_INVALID)?;
+            let j5 = serde_json::from_str::<serde_json::Value>(t5.as_str()).map_err(|_| 42)?;
+            let name = j5.get("name");
+            if let Some(e) = name {
+                let name = e
+                    .as_str()
+                    .ok_or(43)?;
+                let uuid = j5
+                    .get("id")
+                    .ok_or(44)?
+                    .as_str()
+                    .ok_or(45)?;
+                return Ok(AccountResult::new(name, uuid, w4, "", "", ""));
+            }else{
+                return Err(ERR_LOGIN_NO_MINECRAFT);
+            }
+        }
+        /**
+         * 公开函数，用于登录微软账号。需要提供一个device_code。
+         */
+        pub async fn login_microsoft(&self, device_code: String) -> Result<AccountResult, i32> {
+            use super::some_const::*;
+            const MS_LIVE: &str = "https://login.microsoftonline.com/consumers/oauth2/v2.0/token";
+            let k1 = format!("grant_type=urn:ietf:params:oauth:grant-type:device_code&client_id={}&device_code={}", self.client_id, device_code);
+            let client = UrlMethod::new(MS_LIVE);
+            let g1 = client.post_async(k1.as_str(), true)
+                .await
+                .map_or(Err(2), |s| Ok(s.clone()))?;
+            let j1 = serde_json::from_str::<serde_json::Value>(g1.as_str()).map_err(|_| 3)?;
+            let w1 = j1.get("access_token");
+            if let Some(e) = w1 {
+                let e = e.as_str().ok_or(4)?;
+                let mut a = self.microsoft(e).await?;
+                a.set_refresh_token(j1
+                        .get("refresh_token")
+                        .ok_or(5)?
+                        .as_str()
+                        .ok_or(6)?);
+                Ok(a)
+            } else {
+                let e1 = j1.get("error_codes").map_or(Err(7), |e| Ok(e.clone()))?;
+                let e1 = e1.get(0).map_or(Err(8), |e| Ok(e.clone()))?;
+                let e1 = e1.as_i64().map_or(Err(9), |e| Ok(e.clone()))?;
+                if e1 == 70016 {
+                    Err(ERR_LOGIN_DEVICE_CODE_INVALID)
+                }else if e1 == 70020 {
+                    Err(ERR_LOGIN_TIMEOUT)
+                }else{
+                    Err(10)
+                }
+            }
+        }
+        /**
+         * 刷新微软账号，需要提供一个refresh_token。
+         */
+        pub async fn refresh_microsoft(&self, refresh_token: String) -> Result<AccountResult, i32> {
+            use super::some_const::*;
+            const MS_LIVE: &str = "https://login.microsoftonline.com/consumers/oauth2/v2.0/token";
+            let k1 = format!("grant_type=refresh_token&client_id={}&refresh_token={}", self.client_id, refresh_token);
+            let client = UrlMethod::new(MS_LIVE);
+            let g1 = client.post_async(k1.as_str(), true)
+                .await
+                .map_or(Err(11), |s| Ok(s.clone()))?;
+            let j1 = serde_json::from_str::<serde_json::Value>(g1.as_str()).map_err(|_| 12)?;
+            let w1 = j1.get("access_token");
+            if let Some(e) = w1 {
+                let e = e.as_str().ok_or(13)?;
+                let mut a = self.microsoft(e).await?;
+                a.set_refresh_token(j1
+                        .get("refresh_token")
+                        .ok_or(14)?
+                        .as_str()
+                        .ok_or(15)?);
+                Ok(a)
+            } else {
+                let e1 = j1.get("error_codes").ok_or(16)?;
+                let e1 = e1.get(0).ok_or(17)?;
+                let e1 = e1.as_i64().ok_or(18)?;
+                if e1 == 70011 {
+                    Err(ERR_LOGIN_REFRESH_TOKEN_EXPIRE)
+                }else{
+                    Err(19)
+                }
+            }
+        }
+    }
 }
 /**
  * 许多在启动时可能需要用到的静态函数。（无需初始化，仅需直接调用。）
@@ -163,8 +458,7 @@ pub mod main_mod {
      */
     pub fn get_file(path: &str) -> Option<String> {
         let p = std::path::Path::new(path);
-        let f = std::fs::read_to_string(p);
-        if let Ok(e) = f { Some(e) } else { None }
+        std::fs::read_to_string(p).ok()
     }
     /**
      * 将内容写出到文件
@@ -172,20 +466,23 @@ pub mod main_mod {
     pub fn set_file(path: &str, content: String) -> bool {
         let p = std::path::Path::new(path);
         if p.is_dir() { return false; }
-        let parent = p.parent();
-        if let None = parent { return false };
-        let parent = parent.unwrap();
+        let parent = match p.parent() {
+            Some(p) => p,
+            None => return false
+        };
         if !parent.exists() || parent.exists() && parent.is_file() {
             let q = std::fs::create_dir_all(parent);
             if let Err(_) = q { return false; }
         }
-        let f = std::fs::File::create(p);
-        if let Err(_) = f { return false; }
-        let mut f = f.unwrap();
+        let mut f = match std::fs::File::create(p) {
+            Ok(f) => f,
+            Err(_) => return false,
+        };
         use std::io::Write;
-        let r = f.write_all(content.as_bytes());
-        if let Err(_) = r { return false; }
-        true
+        return match f.write_all(content.as_bytes()) {
+            Ok(_) => true,
+            Err(_) => false,
+        };
     }
     /**
      * 删除文件
@@ -193,27 +490,22 @@ pub mod main_mod {
     pub fn delete_file(path: &str) -> bool {
         let p = std::path::Path::new(path);
         if !p.exists() || p.exists() && p.is_dir() { return false; }
-        let res = std::fs::remove_file(p);
-        return if let Err(_) = res { false } else { true }
+        return match std::fs::remove_file(p) {
+            Ok(_) => true,
+            Err(_) => false,
+        }
     }
     /**
      * 获取某一个文件的SHA1值
      */
     pub fn get_sha1(path: &str) -> Option<String> {
-        let file = std::fs::File::open(path);
-        if let Err(e) = file {
-            println!("{:?}", e);
-            return None;
-        }
-        let mut file = file.unwrap();
+        let mut file = std::fs::File::open(path).ok()?;
         use crypto::digest::Digest;
         use std::io::Read;
         let mut sha1 = crypto::sha1::Sha1::new();
         let mut buffer = [0; 1024];
         loop {
-            let n = file.read(&mut buffer);
-            if let Err(_) = n { return None; }
-            let n = n.unwrap();
+            let n = file.read(&mut buffer).ok()?;
             if n == 0 { break; }
             sha1.input(&buffer[..n]);
         }
@@ -229,7 +521,6 @@ pub mod main_mod {
         md5.input_str(format!("OfflinePlayer:{}", name).as_str());
         let res_str = md5.result_str();
         let res_hex = hex::decode(res_str.as_str());
-        if let Err(_) = res_hex { return String::new(); }
         let mut res_hex = res_hex.unwrap();
         res_hex[6] = (res_hex[6] & 0x0f) | 0x30;
         res_hex[8] = (res_hex[8] & 0x3f) | 0x80;
@@ -246,7 +537,7 @@ pub mod main_mod {
         let metadata = String::from_utf8(metadata.unwrap());
         if let Err(_) = metadata { return String::new() }
         let base = base64::engine::general_purpose::STANDARD.encode(metadata.unwrap().replace("\\/", "/"));
-        return base;
+        base
     }
     /**
      * 截取文件名
@@ -258,7 +549,7 @@ pub mod main_mod {
         let versub = file.get((rf + 1)..file.len());
         if let None = versub { return String::new(); }
         let versub = versub.unwrap();
-        return versub.to_string();
+        versub.to_string()
     }
     /**
      * 获取exe的位数（32位或64位）
@@ -266,13 +557,9 @@ pub mod main_mod {
     pub fn get_file_bit(file: String) -> Option<bool> {
         let path = std::path::Path::new(file.as_str());
         if !path.exists() || path.exists() && path.is_dir() { return None; }
-        let data = pelite::FileMap::open(path);
-        if let Err(_) = data { return None; }
-        let data = data.unwrap();
-        let file = pelite::PeFile::from_bytes(&data);
-        if let Err(_) = file { return None; }
-        let file = file.unwrap();
-        return match file {
+        let data = pelite::FileMap::open(path).ok()?;
+        let file = pelite::PeFile::from_bytes(&data).ok()?;
+        match file {
             pelite::Wrap::T64(_) => { Some(true) }
             pelite::Wrap::T32(_) => { Some(false) }
         }
@@ -283,25 +570,28 @@ pub mod main_mod {
     pub fn get_file_version(file: String) -> Option<String> {
         let path = std::path::Path::new(file.as_str());
         if !path.exists() || path.exists() && path.is_dir() { return None; }
-        let data = pelite::FileMap::open(path);
-        if let Err(_) = data { return None; }
-        let data = data.unwrap();
-        let file = pelite::PeFile::from_bytes(&data);
-        if let Err(_) = file { return None; }
-        let file = file.unwrap();
-        let file = file.resources();
-        if let Err(_) = file { return None; }
-        let fixed_version = file.unwrap().version_info();
-        if let Err(_) = fixed_version { return None; }
-        let fixed_version = fixed_version.unwrap().fixed();
-        if let None = fixed_version { return None; }
-        let fixed_version = fixed_version.unwrap();
-        return Some(format!("{}.{}.{}.{}",
+        let data = pelite::FileMap::open(path).ok()?;
+        let file = pelite::PeFile::from_bytes(&data).ok()?;
+        let file = file.resources().ok()?;
+        let fixed_version = file.version_info().ok()?.fixed()?;
+        Some(format!("{}.{}.{}.{}",
                         fixed_version.dwFileVersion.Major.to_string(),
                         fixed_version.dwFileVersion.Minor.to_string(),
                         fixed_version.dwFileVersion.Build.to_string(),
                         fixed_version.dwFileVersion.Patch.to_string()
-                    ));
+                    ))
+    }
+    /**
+     * 通过正版用户名获取其UUID
+     */
+    pub fn name_to_uuid(name: &str) -> Option<String> {
+        let url = format!("https://api.mojang.com/users/profiles/minecraft/{}", name);
+        let url = super::account_mod::UrlMethod::new(url.as_str());
+        let res = url.get_default()?;
+        let res = String::from_utf8(res.clone()).ok()?;
+        let ser = serde_json::from_str::<serde_json::Value>(res.as_str()).ok()?;
+        let ser = ser.get("id")?.as_str()?;
+        Some(ser.to_string())
     }
 }
 /**
@@ -315,18 +605,14 @@ pub mod launcher_mod {
         let mut name = name.clone();
         let suffix: String;
         if name.contains("@") {
-            let rf = name.rfind("@");
-            if let None = rf {
-                return None;
-            }
-            let rf = rf.unwrap();
+            let rf = name.rfind("@")?;
             suffix = name[(rf + 1)..name.len()].to_string();
             name = name[0..rf].to_string();
         }else{
             suffix = String::from("jar")
         }
         let spl: Vec<&str> = name.split(":").collect();
-        return if spl.len() == 4 {
+        if spl.len() == 4 {
             Some(format!("{}\\{}\\{}\\{}-{}-{}.{}", spl[0].replace(".", "\\"), spl[1], spl[2], spl[1], spl[2], spl[3], suffix))
         } else if spl.len() == 3 {
             Some(format!("{}\\{}\\{}\\{}-{}.{}", spl[0].replace(".", "\\"), spl[1], spl[2], spl[1], spl[2], suffix))
@@ -342,17 +628,13 @@ pub mod launcher_mod {
      * 所以各位一定要记得做判断！如果想自定义一个类来启动的而不是用game_launch类启动的话。当然也可以用catch_unwind来捕捉panic也就对了！
      */
     pub fn get_mc_vanilla_version(json: String) -> Option<String> {
-        let root = serde_json::from_str::<serde_json::Value>(json.as_str());
-        if let Err(_) = root { return None; }
-        let binding = root.unwrap();
-        let root = binding.as_object();
-        if let None = root { return None; }
-        let root = root.unwrap();
+        let root = serde_json::from_str::<serde_json::Value>(json.as_str()).ok()?;
         let cid = root.get("clientVersion");
-        if let None = cid { return None; }
-        if let Some(e) = cid.unwrap().as_str() {
-            if !e.is_empty() {
-                return Some(e.to_string());
+        if let Some(e) = cid {
+            if let Some(e) = e.as_str() {
+                if !e.is_empty() {
+                    return Some(e.to_string());
+                }
             }
         }
         let patch = root.get("patches");
@@ -503,13 +785,11 @@ pub mod launcher_mod {
         let mut temp = String::new();
         if ext.len() == 0 { return String::new(); }
         for i in ext.chars() {
-            if isnum {
-                if i.is_numeric() { temp.push(i); }
-            }else{
-                if !i.is_numeric() { temp.push(i); }
+            if isnum == i.is_numeric() {
+                temp.push(i);
             }
         }
-        return temp.clone();
+        temp.clone()
     }
     /**
      * 根据找到的json中的inheritsFrom或者jar值，准确的找到另一个有关该原版的版本文件夹。
@@ -517,24 +797,14 @@ pub mod launcher_mod {
     pub fn get_mc_inherits_from(version_path: String, ioj: &str) -> Option<String> {
         let path = std::path::Path::new(version_path.as_str());
         if path.exists() && path.is_dir() {
-            let real_path = get_mc_real_path(version_path.clone(), ".json");
-            if let None = real_path { return None; }
-            let real_path = real_path.unwrap();
-            let real_file = super::main_mod::get_file(real_path.as_str());
-            if let None = real_file { return None; }
-            let real_file = real_file.unwrap();
-            let root = serde_json::from_str::<serde_json::Value>(real_file.as_str());
-            if let Err(_) = root { return None; }
-            let root = root.unwrap();
-            let root = root.as_object();
-            if let None = root { return None; }
-            let root = root.unwrap();
+            let real_path = get_mc_real_path(version_path.clone(), ".json")?;
+            let real_file = super::main_mod::get_file(real_path.as_str())?;
+            let root = serde_json::from_str::<serde_json::Value>(real_file.as_str()).ok()?;
+            let root = root.as_object()?;
             if let Some(f) = root.get(ioj) {
                 if let Some(e) = f.as_str() {
                     if e.is_empty() { return Some(version_path.clone()) }
-                    let parent_path = path.parent();
-                    if let None = parent_path { return None; }
-                    let parent_path = parent_path.unwrap();
+                    let parent_path = path.parent()?;
                     let dir = walkdir::WalkDir::new(parent_path).min_depth(1).max_depth(1);
                     for i in dir.into_iter().filter_map(|e| e.ok()) {
                         let pa = i.path();
@@ -561,49 +831,31 @@ pub mod launcher_mod {
      */
     pub fn replace_mc_inherits_from(mut raw_json: String, mut ins_json: String) -> Option<String> {
         fn return_some(k: &mut serde_json::Map<String, serde_json::Value>) -> Option<String> {
-            let s = serde_json::to_string(&k);
-            if let Err(_) = s { return None; }
-            let s = s.unwrap();
-            return Some(s);
+            Some(serde_json::to_string(&k).ok()?)
         }
         if raw_json.is_empty() || ins_json.is_empty() { return None; }
         raw_json = raw_json.replace("\\", "");
         ins_json = ins_json.replace("\\", "");
         if raw_json.eq(ins_json.as_str()) { return Some(raw_json); }
-        let rt_raw = serde_json::from_str::<serde_json::Value>(raw_json.as_str());
-        if let Err(_) = rt_raw { return None; }
-        let rt_raw = rt_raw.unwrap();
-        let rt_raw = rt_raw.as_object();
-        if let None = rt_raw { return None; }
-        let rt_raw = rt_raw.unwrap();
-        let rt_ins = serde_json::from_str::<serde_json::Value>(ins_json.as_str());
-        if let Err(_) = rt_ins { return None; }
-        let mut rt_ins = rt_ins.unwrap();
-        let rt_ins = rt_ins.as_object_mut();
-        if let None = rt_ins { return None; }
-        let rt_ins = rt_ins.unwrap();
-        let mc = rt_raw.get("mainClass");
-        if let None = mc { return None; }
-        let mc = mc.unwrap().as_str();
-        if let None = mc { return None; }
-        let mc = mc.unwrap();
+        let rt_raw = serde_json::from_str::<serde_json::Value>(raw_json.as_str()).ok()?;
+        let rt_raw = rt_raw.as_object()?;
+        let mut rt_ins = serde_json::from_str::<serde_json::Value>(ins_json.as_str()).ok()?;
+        let rt_ins = rt_ins.as_object_mut()?;
+        let mc = rt_raw.get("mainClass")?.as_str()?;
         rt_ins.remove("mainClass");
         rt_ins.insert("mainClass".to_string(), serde_json::Value::String(mc.to_string()));
-        let id = rt_raw.get("id");
-        if let None = id { return None; }
-        let id = id.unwrap().as_str();
-        if let None = id { return None; }
-        let id = id.unwrap();
+        let id = rt_raw.get("id")?.as_str()?;
         rt_ins.remove("id");
         rt_ins.insert("id".to_string(), serde_json::Value::String(id.to_string()));
         let raw_lib = rt_raw.get("libraries");
-        if let None = raw_lib { return None; }
-        if let Some(e) = raw_lib.unwrap().as_array() {
-            for i in e.into_iter() {
-                if let Some(f) = i.as_object() {
-                    if let Some(h) = rt_ins.get_mut("libraries") {
-                        if let Some(g) = h.as_array_mut() {
-                            g.push(serde_json::Value::Object(f.clone()));
+        if let Some(d) = raw_lib {
+            if let Some(e) = d.as_array() {
+                for i in e.into_iter() {
+                    if let Some(f) = i.as_object() {
+                        if let Some(h) = rt_ins.get_mut("libraries") {
+                            if let Some(g) = h.as_array_mut() {
+                                g.push(serde_json::Value::Object(f.clone()));
+                            }
                         }
                     }
                 }
@@ -656,7 +908,7 @@ pub mod launcher_mod {
     pub fn get_mc_real_path(version_path: String, suffix: &str) -> Option<String> {
         let path = std::path::Path::new(version_path.as_str());
         if path.exists() && path.is_dir() {
-            let dir = walkdir::WalkDir::new(path.clone()).min_depth(1).max_depth(1);
+            let dir = walkdir::WalkDir::new(path).min_depth(1).max_depth(1);
             for i in dir.into_iter().filter_map(|e| e.ok()) {
                 let pa = i.path();
                 if pa.is_dir() { continue; }
@@ -698,22 +950,14 @@ pub mod launcher_mod {
                 }
             }
         }
-        return None;
+        None
     }
     /**
      * 判断参数，以及拼接参数！适用于在整合参数时。
      */
     pub fn judge_arguments(args_json: String, key: &str) -> Option<Vec<String>>{
-        let root = serde_json::from_str::<serde_json::Value>(args_json.as_str());
-        if let Err(_) = root { return None; }
-        let root = root.unwrap();
-        let argu = root.get("arguments");
-        if let None = argu { return None; }
-        let argu = argu.unwrap().get(key);
-        if let None = argu { return None; }
-        let argu = argu.unwrap().as_array();
-        if let None = argu { return None };
-        let argu = argu.unwrap();
+        let root = serde_json::from_str::<serde_json::Value>(args_json.as_str()).ok()?;
+        let argu = root.get("arguments")?.get(key)?.as_array()?;
         let mut res: Vec<String> = Vec::new();
         for i in argu.into_iter() {
             let i_str = serde_json::to_string(i);
@@ -767,7 +1011,7 @@ pub mod launcher_mod {
                 if rule_2.eq("windows") { return false; }
             }
         }
-        return true;
+        true
     }
     /**
      * 获取MC类库（GetCPLibraries）
@@ -779,17 +1023,8 @@ pub mod launcher_mod {
         let mut no_low: Vec<String> = Vec::new();
         let mut temp_list: Vec<String> = Vec::new();
         let mut no_opt: Vec<String> = Vec::new();
-        let root = serde_json::from_str::<serde_json::Value>(raw_json.as_str());
-        if let Err(_) = root { return None; }
-        let root = root.unwrap();
-        let root = root.as_object();
-        if let None = root{ return None; }
-        let root = root.unwrap();
-        let json_lib = root.get("libraries");
-        if let None = json_lib { return None; }
-        let json_lib = json_lib.unwrap().as_array();
-        if let None = json_lib { return None; } 
-        let json_lib = json_lib.unwrap();
+        let root = serde_json::from_str::<serde_json::Value>(raw_json.as_str()).ok()?;
+        let json_lib = root.get("libraries")?.as_array()?;
         for i in json_lib.into_iter() {
             let lib_root = i.as_object();
             if let None = lib_root { continue; }
@@ -802,11 +1037,6 @@ pub mod launcher_mod {
             let expect_rule = judge_mc_rules(lib_root);
             let mut expect_native = true;
             let mut expect_downloads = true;
-            if let Some(e) = lib_root.get("natives") {
-                if let Some(_) = e.as_object() {
-                    expect_native = false;
-                }
-            }
             if let Some(e) = lib_root.get("downloads") {
                 if let Some(f) = e.get("classifiers") {
                     if let Some(_) = f.as_object() {
@@ -859,14 +1089,14 @@ pub mod launcher_mod {
                 }
             }
         }
-        //fuck you！ optifine!
+        //dim you! optifine!
         let mut temp: Vec<String> = Vec::new();
         for i in no_low.into_iter(){
             if i.contains("optifine") {
                 temp.push(i.clone());
-                continue;
+            }else{
+                no_opt.push(i.clone());
             }
-            no_opt.push(i.clone());
         }
         if !temp.is_empty() {
             no_opt.extend(temp.clone());
@@ -877,23 +1107,12 @@ pub mod launcher_mod {
                 res.push_str(format!("{}\\libraries\\{}{}", root_path, e, "${classpath_separator}").as_str());
             }
         }
-        let inh = get_mc_inherits_from(version_path.to_string(), "jar");
-        if let None = inh { return None; }
-        let mut inh = inh.unwrap();
+        let mut inh = get_mc_inherits_from(version_path.to_string(), "jar")?;
         if inh.eq(version_path) {
-            let inhj = get_mc_inherits_from(version_path.to_string(), "inheritsFrom");
-            if let None = inhj { return None; }
-            inh = inhj.unwrap().clone();
+            let inhj = get_mc_inherits_from(version_path.to_string(), "inheritsFrom")?;
+            inh = inhj.clone();
         }
-        let sha = root.get("downloads");
-        if let None = sha { return None; }
-        let sha = sha.unwrap().get("client");
-        if let None = sha { return None; }
-        let sha = sha.unwrap().get("sha1");
-        if let None = sha { return None; }
-        let sha = sha.unwrap().as_str();
-        if let None = sha { return None; }
-        let sha = sha.unwrap();
+        let sha = root.get("downloads")?.get("client")?.get("sha1")?.as_str()?;
         let tmp = get_mc_real_path(inh, sha);
         if let Some(e) = tmp {
             res.push_str(e.as_str());
@@ -978,13 +1197,13 @@ pub mod launcher_mod {
                 }
             }
         }
-        let dir = format!("{}\\{}-TLM-natives", version_path, super::main_mod::extract_file_name(version_path));
+        let dir = format!("{}\\{}-{}-natives", version_path, super::main_mod::extract_file_name(version_path), super::some_const::LAUNCHER_NANE);
         let ver_file = std::path::Path::new(dir.as_str());
         if !ver_file.exists() || (ver_file.exists() && ver_file.is_file()) {
             let cf = std::fs::create_dir_all(ver_file);
             if let Err(_) = cf { return false; }
         }else{ return true; }
-        return if no_low.len() == 0 { true } else {
+        if no_low.len() == 0 { true } else {
             for c in no_low.into_iter() {
                 let cvn = convert_name_to_path(c);
                 if let None = cvn { continue; }
@@ -1044,7 +1263,7 @@ pub mod launcher_mod {
                 window_width: 480,
                 min_memory: 256,
                 max_memory: 4096,
-                custom_info: "M M C L L".to_string(),
+                custom_info: format!("{}-{}", super::some_const::LAUNCHER_NANE, super::some_const::LAUNCHER_VERSION),
                 additional_jvm: String::new(),
                 additional_game: String::new(),
             }
@@ -1154,137 +1373,69 @@ pub mod launcher_mod {
             use super::some_const::*;
             let event_loop = winit::event_loop::EventLoop::new();
             let monitor = event_loop.available_monitors().next();
-            if let None = monitor {
-                return ERR_UNKNOWN_ERROR;
-            }
+            if let None = monitor { return ERR_UNKNOWN_ERROR; }
             let monitor = monitor.unwrap();
             let window_size = monitor.size();
             let mut sys = sysinfo::System::new_all();
             sys.refresh_all();
             let mem = (sys.total_memory() as f64 / 1024.0 / 1024.0).ceil() as i32;
             if self.account.get_online() == 0 {
-                let regu = regex::Regex::new("^[0-9a-f]{32}$");
-                if let Err(_) = regu {
-                    return ERR_UNKNOWN_ERROR;
-                }
-                let regu = regu.unwrap();
-                if !regu.is_match(self.account.get_uuid()) {
-                    return ERR_LAUNCH_ACCOUNT_USERUUID;
-                }
-                let regn = regex::Regex::new("^[a-zA-Z0-9]{3,16}$");
-                if let Err(_) = regn {
-                    return ERR_UNKNOWN_ERROR;
-                }
-                let regn = regn.unwrap();
-                if !regn.is_match(self.account.get_name()) {
-                    return ERR_LAUNCH_ACCOUNT_USERNAME;
-                }
+                let regu = regex::Regex::new("^[0-9a-f]{32}$").unwrap();
+                if !regu.is_match(self.account.get_uuid()) { return ERR_LAUNCH_ACCOUNT_USERUUID; }
+                let regn = regex::Regex::new("^[a-zA-Z0-9]{3,16}$").unwrap();
+                if !regn.is_match(self.account.get_name()) { return ERR_LAUNCH_ACCOUNT_USERNAME; }
             } else if self.account.get_online() == 1 {
                 let um = super::account_mod::UrlMethod::new("https://api.minecraftservices.com/minecraft/profile");
                 let ih = um.get(self.account.get_access_token());
-                if let None = ih {
-                    return ERR_LAUNCH_ACCOUNT_ACCESS_TOKEN;
-                }
+                if let None = ih { return ERR_LAUNCH_ACCOUNT_ACCESS_TOKEN; }
                 let json = serde_json::from_str::<serde_json::Value>(ih.unwrap().replace("\\/", "/").as_str());
-                if let Err(_) = json {
-                    return ERR_UNKNOWN_ERROR;
-                }
+                if let Err(_) = json { return ERR_UNKNOWN_ERROR; }
                 let json = json.unwrap();
                 let json = json.as_object();
-                if let None = json {
-                    return ERR_UNKNOWN_ERROR;
-                }
+                if let None = json { return ERR_UNKNOWN_ERROR; }
                 let json = json.unwrap();
                 let name = json.get("name");
-                if let None = name {
-                    return ERR_LAUNCH_ACCOUNT_NO_LEGAL;
-                }
+                if let None = name { return ERR_LAUNCH_ACCOUNT_NO_LEGAL; }
                 let name = name.unwrap().as_str();
-                if let None = name {
-                    return ERR_LAUNCH_ACCOUNT_NO_LEGAL;
-                }
+                if let None = name { return ERR_LAUNCH_ACCOUNT_NO_LEGAL; }
                 let name = name.unwrap();
                 let uuid = json.get("id");
-                if let None = uuid {
-                    return ERR_LAUNCH_ACCOUNT_NO_LEGAL;
-                }
+                if let None = uuid { return ERR_LAUNCH_ACCOUNT_NO_LEGAL; }
                 let uuid = uuid.unwrap().as_str();
-                if let None = uuid {
-                    return ERR_LAUNCH_ACCOUNT_NO_LEGAL;
-                }
+                if let None = uuid { return ERR_LAUNCH_ACCOUNT_NO_LEGAL; }
                 let uuid = uuid.unwrap();
-                if name != self.account.get_name() && uuid != self.account.get_name() {
-                    return ERR_LAUNCH_ACCOUNT_ACCESS_TOKEN;
-                }
+                if name != self.account.get_name() && uuid != self.account.get_name() { return ERR_LAUNCH_ACCOUNT_ACCESS_TOKEN; }
             } else if self.account.get_online() == 2 {
-                if self.account.get_base().is_empty() || !regex::Regex::new(r"^([A-Za-z0-9+/]{4})*([A-Za-z0-9+/]{3}=|[A-Za-z0-9+/]{2}==)?$").unwrap().is_match(self.account.get_base()) {
-                    return ERR_LAUNCH_ACCOUNT_THIRDPARTY_BASE;
-                }
+                if self.account.get_base().is_empty() || !regex::Regex::new(r"^([A-Za-z0-9+/]{4})*([A-Za-z0-9+/]{3}=|[A-Za-z0-9+/]{2}==)?$").unwrap().is_match(self.account.get_base()) { return ERR_LAUNCH_ACCOUNT_THIRDPARTY_BASE; }
                 let t = format!("{}/authserver/validate", self.account.get_url());
                 let pl = format!("{}{}{}", "{\"accesstoken\":\"", self.account.get_access_token(), "\"}");
                 let po = super::account_mod::UrlMethod::new(t.as_str());
                 let pl = po.post(pl.as_str(), true);
-                if let None = pl {
-                    return ERR_LAUNCH_ACCOUNT_THIRDPARTY_ACCESS_TOKEN_OR_URL;
-                }
+                if let None = pl { return ERR_LAUNCH_ACCOUNT_THIRDPARTY_ACCESS_TOKEN_OR_URL; }
             }
             let jpath = std::path::Path::new(self.java_path.as_str());
-            if !jpath.exists() || !jpath.is_file() {
-                return ERR_LAUNCH_JAVA_PATH;
-            }
+            if !jpath.exists() || !jpath.is_file() { return ERR_LAUNCH_JAVA_PATH; }
             let rpath = std::path::Path::new(self.root_path.as_str());
-            if !rpath.exists() || !rpath.is_dir() {
-                return ERR_LAUNCH_ROOT_PATH;
-            }
+            if !rpath.exists() || !rpath.is_dir() { return ERR_LAUNCH_ROOT_PATH; }
             let vpath = std::path::Path::new(self.version_path.as_str());
-            if !vpath.exists() || !vpath.is_dir() {
-                return ERR_LAUNCH_VERSION_PATH;
-            }
+            if !vpath.exists() || !vpath.is_dir() { return ERR_LAUNCH_VERSION_PATH; }
             let gpath = std::path::Path::new(self.game_path.as_str());
-            if !gpath.exists() || !gpath.is_dir() {
-                return ERR_LAUNCH_GAME_PATH;
-            }
-            if self.window_width < 854 || self.window_width > (window_size.width as usize) {
-                return ERR_LAUNCH_WIDTH;
-            }
-            if self.window_height < 480 || self.window_height > (window_size.height as usize) {
-                return ERR_LAUNCH_HEIGHT;
-            }
-            if self.min_memory > 1024 || self.min_memory < 256 {
-                return ERR_LAUNCH_MIN_MEMORY;
-            }
-            if self.max_memory < 1024 || self.max_memory > (mem as usize) {
-                return ERR_LAUNCH_MAX_MEMORY;
-            }
-            if self.custom_info == "" {
-                return ERR_LAUNCH_CUSTOM_INFO;
-            }
-            return OK;
+            if !gpath.exists() || !gpath.is_dir() { return ERR_LAUNCH_GAME_PATH; }
+            if self.window_width < 854 || self.window_width > (window_size.width as usize) { return ERR_LAUNCH_WIDTH; }
+            if self.window_height < 480 || self.window_height > (window_size.height as usize) { return ERR_LAUNCH_HEIGHT; }
+            if self.min_memory > 1024 || self.min_memory < 256 { return ERR_LAUNCH_MIN_MEMORY; }
+            if self.max_memory < 1024 || self.max_memory > (mem as usize) { return ERR_LAUNCH_MAX_MEMORY; }
+            if self.custom_info == "" { return ERR_LAUNCH_CUSTOM_INFO; }
+            OK
         }
         /**
          * 拼接全局参数
          */
         fn put_arguments(&self, real_json: String, def_jvm: String, defn_jvm: String) -> Option<Vec<String>> {
-            let root = serde_json::from_str::<serde_json::Value>(real_json.as_str());
-            if let Err(_) = root { return None; }
-            let root = root.unwrap();
-            let mcid = root.get("id");
-            if let None = mcid { return None; }
-            let mcid = mcid.unwrap().as_str();
-            if let None = mcid { return None; }
-            let mcid = mcid.unwrap();
-            let main_class = root.get("mainClass");
-            if let None = main_class { return None; }
-            let main_class = main_class.unwrap().as_str();
-            if let None = main_class { return None; }
-            let main_class = main_class.unwrap();
-            let asset_index = root.get("assetIndex");
-            if let None = asset_index { return None; }
-            let asset_index = asset_index.unwrap().get("id");
-            if let None = asset_index { return None; }
-            let asset_index = asset_index.unwrap().as_str();
-            if let None = asset_index { return None; }
-            let asset_index = asset_index.unwrap();
+            let root = serde_json::from_str::<serde_json::Value>(real_json.as_str()).ok()?;
+            let mcid = root.get("id")?.as_str()?;
+            let main_class = root.get("mainClass")?.as_str()?;
+            let asset_index = root.get("assetIndex")?.get("id")?.as_str()?;
             let mut result: Vec<String> = Vec::new();
             let def_jvm: Vec<String> = def_jvm.split_whitespace().collect::<Vec<&str>>().iter().map(|e| String::from(*e)).collect();
             let defn_jvm: Vec<String> = defn_jvm.split_whitespace().collect::<Vec<&str>>().iter().map(|e| String::from(*e)).collect();
@@ -1334,18 +1485,11 @@ pub mod launcher_mod {
                         result.extend(judge_game);
                     }
                 }
-                let judge_game = judge_arguments(real_json.clone(), "game");
-                if let Some(judge_game) = judge_game {
+                if let Some(judge_game) = judge_arguments(real_json.clone(), "game") {
                     result.extend(judge_game);
                 }
             } else {
-                println!("断点1");
-                let judge_game = judge_arguments(real_json.clone(), "game");
-                if let Some(e) = judge_game {
-                    result.extend(e);
-                }else{
-                    return None;
-                }
+                result.extend(judge_arguments(real_json.clone(), "game")?);
             }
             if !self.additional_game.contains("--fullScreen") {
                 result.push("--width".to_string());
@@ -1358,14 +1502,14 @@ pub mod launcher_mod {
                 result.extend(add_game.clone());
             }
             if result.contains(&"optifine.OptiFineForgeTweaker".to_string()) {
-                let temp_1 = result.iter().position(|x| x == &"optifine.OptiFineForgeTweaker".to_string()).unwrap();
+                let temp_1 = result.iter().position(|x| x.eq("optifine.OptiFineForgeTweaker")).unwrap();
                 result.remove(temp_1 - 1);
                 result.remove(temp_1 - 1);
                 result.push("--tweakClass".to_string());
                 result.push("optifine.OptiFineForgeTweaker".to_string());
             }
             if result.contains(&"optifine.OptiFineTweaker".to_string()) {
-                let temp_1 = result.iter().position(|x| x == &"optifine.OptiFineTweaker".to_string()).unwrap();
+                let temp_1 = result.iter().position(|x| x.eq("optifine.OptiFineTweaker")).unwrap();
                 result.remove(temp_1 - 1);
                 result.remove(temp_1 - 1);
                 result.push("--tweakClass".to_string());
@@ -1377,12 +1521,13 @@ pub mod launcher_mod {
             for i in result.iter_mut() {
                 *i = i
                     .replace("${natives_directory}", 
-                        format!("{}\\{}-TLM-natives", 
+                        format!("{}\\{}-{}-natives", 
                             self.version_path,
-                            super::main_mod::extract_file_name(self.version_path.as_str())).as_str())
-                    .replace("${launcher_name}", "TLM")
+                            super::main_mod::extract_file_name(self.version_path.as_str()),
+                            super::some_const::LAUNCHER_NANE).as_str())
+                    .replace("${launcher_name}", super::some_const::LAUNCHER_NANE)
                     .replace("${launcher_version}", 
-                        super::some_const::TLM_VERSION
+                        super::some_const::LAUNCHER_VERSION
                                 .replace(".", "")
                                 .replace("-", "")
                                 .replace("Alpha", "")
@@ -1406,7 +1551,7 @@ pub mod launcher_mod {
                     .replace("${user_properties}", "{}")
                     .replace("${classpath_separator}", ";");  //MacOS 是 冒号【:】
             }
-            return Some(result);
+            Some(result)
         }
         /**
          * 如果没有错误，则会调用该函数。如果启动过程中出现不可预知的错误，则会直接panic掉！
@@ -1414,49 +1559,21 @@ pub mod launcher_mod {
         fn game_launch(&self) {
             let def_jvm: String = String::from("-XX:+UseG1GC -XX:-UseAdaptiveSizePolicy -XX:-OmitStackTraceInFastThrow -Dfml.ignoreInvalidMinecraftCertificates=true -Dfml.ignorePatchDiscrepancies=true -Dlog4j2.formatMsgNoLookups=true");
             let defn_jvm: String = String::from("-XX:HeapDumpPath=MojangTricksIntelDriversForPerformance_javaw.exe_minecraft.exe.heapdump");
-            let version_json_path = get_mc_real_path(self.version_path.clone(), ".json");
-            if let None = version_json_path {
-                panic!("Cannot find eligible json in the version dir, please retry!");
-            }
-            let version_json_path = version_json_path.unwrap();
+            let version_json_path = get_mc_real_path(self.version_path.clone(), ".json").expect("Cannot find eligible json in the version dir, please retry!");
             let final_json: String;
-            let raw_json = super::main_mod::get_file(version_json_path.as_str());
-            if let None = raw_json {
-                panic!("Cannot read json in the version dir, please retry!")
-            }
-            let raw_json = raw_json.unwrap();
-            let inherits_json = get_mc_inherits_from(self.version_path.clone(), "inheritsFrom");
-            if let None = inherits_json {
-                panic!("Cannot find vanilla key pass version inheritsFrom key, you have not download vanilla version, please retry!")
-            }
-            let inherits_json = inherits_json.unwrap();
+            let raw_json = super::main_mod::get_file(version_json_path.as_str()).expect("Cannot read json in the version dir, please retry!");
+            let inherits_json = get_mc_inherits_from(self.version_path.clone(), "inheritsFrom").expect("Cannot find vanilla key pass version inheritsFrom key, you have not download vanilla version, please retry!");
             if !inherits_json.eq(self.version_path.as_str()) {
-                let file = get_mc_real_path(inherits_json, ".json");
-                if let None = file {
-                    panic!("Cannot read already find inheritsFrom key to the vanilla json, please retry!");
-                }
-                let file = file.unwrap();
-                let fjson = super::main_mod::get_file(file.as_str());
-                if let None = fjson {
-                    panic!("Cannot read already find inheritsFrom key to the vanilla json content, please retry!")
-                }
-                final_json = fjson.unwrap();
+                let file = get_mc_real_path(inherits_json, ".json").expect("Cannot read already find inheritsFrom key to the vanilla json, please retry!");
+                final_json = super::main_mod::get_file(file.as_str()).expect("Cannot read already find inheritsFrom key to the vanilla json content, please retry!");
             }else{
                 final_json = raw_json.clone();
             }
             if !unzip_native(final_json.clone(), self.root_path.as_str(), self.version_path.as_str()) {
                 panic!("Cannot unzip natives, please retry!")
             }
-            let real_json = replace_mc_inherits_from(raw_json, final_json);
-            if let None = real_json {
-                panic!("Cannot find id or mainClass in inheritsFrom json, please retry!")
-            }
-            let real_json = real_json.unwrap();
-            let param = self.put_arguments(real_json.clone(), def_jvm.clone(), defn_jvm.clone());
-            if let None = param {
-                panic!("Cannot join all param in your params, please retry!")
-            }
-            let mut param = param.unwrap();
+            let real_json = replace_mc_inherits_from(raw_json, final_json).expect("Cannot find id or mainClass in inheritsFrom json, please retry!");
+            let mut param = self.put_arguments(real_json.clone(), def_jvm.clone(), defn_jvm.clone()).expect("Cannot join all param in your params, please retry!");
             param.splice(0..0, [self.java_path.clone()]);
             let command = param.iter().map(AsRef::as_ref).collect();
             (self.callback)(command);
