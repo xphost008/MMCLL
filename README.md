@@ -33,7 +33,7 @@
 |Delphi|DelphiVersion|5%|
 |易语言|EVersion|0%|
 |Go|GoVersion|0%|
-|Rust|RustVersion|15%|
+|Rust|RustVersion|43%|
 
 - 其中，很多种文件夹有多个文件。只有极少数语言里仅含有单个文件。例如：
 
@@ -64,7 +64,7 @@
 
 |语言|IDE工具|
 |----|----|
-|C++|Qt Creator|
+|C++|Jetbrains Clion|
 |Java|Jetbrains Intellij IDEA|
 |C#|Jetbrains Rider|
 |Python|Jetbrains PyCharm|

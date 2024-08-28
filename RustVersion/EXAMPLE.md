@@ -86,14 +86,14 @@ pub fn start_launch(){
 
 各位可以将启动参数加上双引号，然后中间加个空格存成字符串保存到外部文件，之后再运行！
 
-## 这里是使用MMCLL登录账号的一个小示例：
+## 这里是使用MMCLL登录微软账号的一个小示例：
 
 ```rust
 pub fn login_microsoft(){
     //使用tokio执行异步程序，但是阻塞了主线程。
     let rt = tokio::runtime::Runtime::new().unwrap();
     rt.block_on(async {
-        let login = AccountLogin::new("<你的微软client_id>");
+        let login = AccountLogin::new_ms("<你的微软client_id>");
         //此时应该会返回Err(-1)错误，未能获取用户代码，请自行解决。
         let (user_code, device_code) = login.get_user_code().await.unwrap();
         println!("请复制你的用户代码，并将其粘贴到浏览器上：{}", user_code);
@@ -158,6 +158,69 @@ pub fn login_microsoft(){
                             println!("出现了未知错误，请立即反馈给作者！错误代码：{}", e);
                             break;
                         }
+                    }
+                }
+            }
+        }
+    });
+}
+```
+
+## 这里是使用MMCLL登录第三方账号的一个小示例：
+
+```rust
+pub fn set_thirdparty() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    rt.block_on(async move {
+        let aa = crate::rust_lib::account_mod::AccountLogin::new_tp("<你的服务器地址（精确到api/yggdrasil，且末尾不能有/符号）>");
+        let awa = aa.login_thirdparty(String::from("<账号（通常是邮箱）>"), String::from("密码"), String::from("客户端密钥（client_token，如果没有这里留空即可）")).await;
+        match awa {
+            Ok(e) => {
+                //下列是选择登录用户的过程。
+                let mut res: Vec<String> = Vec::new();
+                for i in 0..e.len() {
+                    res.push(format!("{}. {}", i + 1, e[i].get_name()));
+                }
+                if res.len() == 0 {
+                    println!("{}", ansi_term::Color::Yellow.paint("你的第三方登录暂未选择任意皮肤噢！请选择一个再来！"));
+                    return;
+                }
+                println!("----------------------------------------------");
+                println!("请输入你要登录的第三方账号：");
+                for i in res.iter() {
+                    println!("{}", i);
+                }
+                println!("----------------------------------------------");
+                let mut input_num = String::new();
+                std::io::stdin().read_line(&mut input_num).expect("Cannot read num!");
+                let input_num = input_num.trim().parse::<usize>();
+                if let Err(_) = input_num {
+                    println!("{}", ansi_term::Color::Red.paint("输入了错误的数字，请重新输入！"));
+                    return;
+                }
+                let input_num = input_num.unwrap();
+                if input_num > res.len() || input_num < 1 {
+                    println!("{}", ansi_term::Color::Red.paint("输入了错误的数字，请重新输入！"));
+                    return;
+                }
+                let input_num = input_num - 1;
+                let res_acc = e[input_num].clone();
+                //依旧的，仅打印输出。
+                println!("{}\n{}\n{}\n{}\n{}\n{}\n{}", res_acc.get_name().as_str(), res_acc.get_uuid().as_str(), res_acc.get_access_token().as_str(), "", res_acc.get_client_token().as_str(), server, res_acc.get_base().as_str(), 3);
+            },
+            Err(e) => {
+                match e {
+                    -14 => {
+                        println!("{}", ansi_term::Color::Red.paint("无法获取第三方元数据网址，请确保你已连接网络。"));
+                        return;
+                    }
+                    -15 => {
+                        println!("{}", ansi_term::Color::Red.paint("账号或密码错误，或者是你登录次数过多而被暂时禁止登录，请稍后重试！"));
+                        return;
+                    }
+                    _ => {
+                        println!("{}{}", ansi_term::Color::Red.paint("出现了未知错误，请立即反馈给作者！错误代码："), e);
+                        return;
                     }
                 }
             }

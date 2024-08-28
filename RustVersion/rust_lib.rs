@@ -8,8 +8,8 @@
  */
 pub mod some_const {
     pub const LAUNCHER_NANE: &str = "MMCLL";  //在使用此库时，请自觉将此值改成你的【<启动器名称>】。在使用默认方式启动时，会自动将【${launcher_name}】替换成该值。
-    pub const LAUNCHER_VERSION: &str = "0.0.1-Alpha-7"; //在使用此库时，请自觉将此值改成你的【<启动器版本>】【可以加上Alpha、Beta、Pre三个值，因为在启动替换（${launcher_version}）时用到这个值。不过各位可以自行去函数put_arguments进行修改以适配该值。】
-    pub const USER_AGENT: &str = "MMCLL/0.0.1.7";  //在使用此库时，请自觉将此值改成你的【<启动器名称>/<启动器版本>】。
+    pub const LAUNCHER_VERSION: &str = "0.0.1-Alpha-8"; //在使用此库时，请自觉将此值改成你的【<启动器版本>】【可以加上Alpha、Beta、Pre三个值，因为在启动替换（${launcher_version}）时用到这个值。不过各位可以自行去函数put_arguments进行修改以适配该值。】
+    pub const USER_AGENT: &str = "MMCLL/0.0.1.8";  //在使用此库时，请自觉将此值改成你的【<启动器名称>/<启动器版本>】。
     pub const OK: i32 = 0;  //完成
     pub const ERR_UNKNOWN_ERROR: i32 = 1;  //未知错误
     //以下是启动游戏时的部分错误代码
@@ -29,7 +29,7 @@ pub mod some_const {
     pub const ERR_LAUNCH_MAX_MEMORY: i32 = -13;  //最大内存错误（小于1024或大于系统内存）
     pub const ERR_LAUNCH_CUSTOM_INFO: i32 = -14;  //自定义信息错误（未填写，必须要个默认值！）
     //以下是账号登录时的部分错误代码
-    pub const ERR_LOGIN_CANNOT_GET_USER_CODE: i32 = -1;  //未成功获取用户代码
+    pub const ERR_LOGIN_CANNOT_GET_USERCODE: i32 = -1;  //未成功获取用户代码
     pub const ERR_LOGIN_DEVICE_CODE_INVALID: i32 = -2;  //微软登录，暂未完成登录。
     pub const ERR_LOGIN_TIMEOUT: i32 = -3;  //微软登录，登录超时（15分钟未完成登录），请重试！
     pub const ERR_LOGIN_REFRESH_TOKEN_EXPIRE: i32 = -4;  //微软登录，刷新密钥也同样过期了。
@@ -42,6 +42,11 @@ pub mod some_const {
     pub const ERR_LOGIN_XBOX_XSTS_USERCODE: i32 = -11;  //你请求的xbox usercode与xsts usercode二者不一致，请重新尝试！
     pub const ERR_LOGIN_MC_INVALID: i32 = -12;  //在进行mc登录时出现了错误，可能是没挂vβn的原因。
     pub const ERR_LOGIN_NO_MINECRAFT: i32 = -13;  //该账号暂未购买mc，请重新尝试！
+    //以下是外置登录
+    pub const ERR_LOGIN_CANNOT_GET_METADATA: i32 = -14;  //第三方登录：无法获取皮肤站元数据。
+    pub const ERR_LOGIN_USERNAME_OR_PASSWORD: i32 = -15;  //第三方登录：账号密码错误。
+    pub const ERR_LOGIN_INVALID_ACCESS_TOKEN: i32 = -16;  //第三方登录：无效的令牌。
+    pub const ERR_LOGIN_ACCESS_TOKEN_EXPIRE: i32 = -17;  //第三方登录，用于刷新的登录密钥已过期很久。
 }
 /**
  * 部分全局变量值。在需要的时候可以使用unsafe包裹住该变量以便使用，赋值和引用均可。但是你需要为你赋过的值负责！。
@@ -191,6 +196,7 @@ pub mod account_mod {
             Some(res.to_vec())
         }
     }
+    #[derive(Clone)]
     pub struct AccountResult {
         name: String,
         uuid: String,
@@ -200,16 +206,14 @@ pub mod account_mod {
         base: String
     }
     impl AccountResult {
-        fn new(name: &str, uuid: &str, access_token: &str, refresh_token: &str, client_token: &str, base: &str) -> Self {
-            Self {
-                name: name.to_string(),
-                uuid: uuid.to_string(),
-                access_token: access_token.to_string(),
-                refresh_token: refresh_token.to_string(),
-                client_token: client_token.to_string(),
-                base: base.to_string()
-            }
-        }
+        fn new() -> Self { Self {
+           name: String::new(),
+           uuid: String::new(),
+           access_token: String::new(),
+           refresh_token: String::new(),
+           client_token: String::new(),
+           base: String::new()
+        } }
         pub fn get_name(&self) -> String {
             return self.name.clone();
         }
@@ -228,20 +232,44 @@ pub mod account_mod {
         pub fn get_base(&self) -> String {
             return self.base.clone();
         }
+        fn set_name(&mut self, name: &str) {
+            self.name = name.to_string();
+        }
+        fn set_uuid(&mut self, uuid: &str) {
+            self.uuid = uuid.to_string();
+        }
+        fn set_access_token(&mut self, access_token: &str) {
+            self.access_token = access_token.to_string();
+        }
         fn set_refresh_token(&mut self, refresh_token: &str) {
             self.refresh_token = refresh_token.to_string();
         }
+        fn set_client_token(&mut self, client_token: &str) {
+            self.client_token = client_token.to_string();
+        }
+        fn set_base(&mut self, base: &str) {
+            self.base = base.to_string();
+        }
     }
     pub struct AccountLogin {
-        client_id: String,
+        key: String,
     }
     impl AccountLogin{
         /**
          * 微软登录与外置登录均使用异步编写手法，各位可以使用tokio或futures运行。
          * 该new函数需要传入一个client_id值，该值请自行查阅wiki.vg或者本仓库文档进行查阅。
          */
-        pub fn new(client_id: &str) -> Self {
-            Self { client_id: client_id.to_string() }
+        pub fn new_ms(client_id: &str) -> Self {
+            Self { key: client_id.to_string() }
+        }
+        /**
+         * 外置登录需要填入一个服务器地址
+         * 该服务器地址需要精确到api/yggdrasil/以便我直接进行post、get。
+         * 记住，服务器地址末尾必须不能有/符号，否则一定会出错！
+         * 示例填入：https://littleskin.cn/api/yggdrasil
+         */
+        pub fn new_tp(server: &str) -> Self {
+            Self { key: server.to_string() }
         }
         /**
          * 这里是获取用户代码的，返回两个值（用户代码、设备代码），各位需要自行使用浏览器打开【https://microsoft.com/link 】进行登录。
@@ -255,31 +283,32 @@ pub mod account_mod {
          */
         pub async fn get_user_code(&self) -> Result<(String, String), i32> {
             const URL: &str = "https://login.microsoftonline.com/consumers/oauth2/v2.0/devicecode?mkt=zh-CN";
-            let k1 = format!("client_id={}&scope=XboxLive.signin%20offline_access", self.client_id.clone());
+            let k1 = format!("client_id={}&scope=XboxLive.signin%20offline_access", self.key.clone());
             let client = UrlMethod::new(URL);
             let res = client.post_async(k1.as_str(), true)
                 .await
-                .map_or(Err(super::some_const::ERR_LOGIN_CANNOT_GET_USER_CODE), |s| Ok(s.clone()))?;
-            let login = serde_json::from_str::<serde_json::Value>(res.as_str()).map_err(|_| super::some_const::ERR_LOGIN_CANNOT_GET_USER_CODE )?;
+                .map_or(Err(super::some_const::ERR_LOGIN_CANNOT_GET_USERCODE), |s| Ok(s.clone()))?;
+            let login = serde_json::from_str::<serde_json::Value>(res.as_str()).map_err(|_| super::some_const::ERR_LOGIN_CANNOT_GET_USERCODE )?;
             let user_code = login.get("user_code")
-                .ok_or(super::some_const::ERR_LOGIN_CANNOT_GET_USER_CODE )?
+                .ok_or(super::some_const::ERR_LOGIN_CANNOT_GET_USERCODE )?
                 .as_str()
-                .ok_or(super::some_const::ERR_LOGIN_CANNOT_GET_USER_CODE )?;
+                .ok_or(super::some_const::ERR_LOGIN_CANNOT_GET_USERCODE )?;
             let device_code = login.get("device_code")
-                .ok_or(super::some_const::ERR_LOGIN_CANNOT_GET_USER_CODE )?
+                .ok_or(super::some_const::ERR_LOGIN_CANNOT_GET_USERCODE )?
                 .as_str()
-                .ok_or(super::some_const::ERR_LOGIN_CANNOT_GET_USER_CODE )?;
+                .ok_or(super::some_const::ERR_LOGIN_CANNOT_GET_USERCODE )?;
             Ok((user_code.to_string(), device_code.to_string()))
         }
         /**
          * 登录的时候是刷新还是请求，这里是私有函数。
          */
-        async fn microsoft(&self, access_token: &str) -> Result<AccountResult, i32> {
+        async fn microsoft(&self, access_token: &str, refresh_token: &str) -> Result<AccountResult, i32> {
             use super::some_const::*;
             const XBOX_LIVE: &str = "https://user.auth.xboxlive.com/user/authenticate";
             const XSTS_LIVE: &str = "https://xsts.auth.xboxlive.com/xsts/authorize";
             const MC_LIVE: &str = "https://api.minecraftservices.com/authentication/login_with_xbox";
             const VERIFY: &str = "https://api.minecraftservices.com/minecraft/profile";
+            let mut result_account = AccountResult::new();
             let k2 = format!("{}{}{}", "{\"Properties\":{\"AuthMethod\":\"RPS\",\"SiteName\":\"user.auth.xboxlive.com\",\"RpsTicket\":\"d=", access_token, "\"},\"RelyingParty\":\"http://auth.xboxlive.com\",\"TokenType\":\"JWT\"}");
             let t2 = UrlMethod::new(XBOX_LIVE)
                 .post_async(k2.as_str(), false)
@@ -311,12 +340,7 @@ pub mod account_mod {
             let j3 = serde_json::from_str::<serde_json::Value>(t3.as_str()).map_err(|_| 29)?;
             let w3 = j3
                 .get("Token");
-            let ww3: &str;
-            if let Some(w) = w3 {
-                ww3 = w
-                    .as_str()
-                    .ok_or(30)?;
-            }else{
+            if let None = w3 {
                 let ww3 = j3
                     .get("XErr")
                     .ok_or(31)?
@@ -334,6 +358,7 @@ pub mod account_mod {
                     return Err(33);
                 }
             }
+            let w3 = w3.unwrap().as_str().ok_or(30)?;
             let uhs_xsts = j3
                 .get("DisplayClaims")
                 .ok_or(34)?
@@ -348,7 +373,7 @@ pub mod account_mod {
             if uhs_xbox != uhs_xsts {
                 return Err(ERR_LOGIN_XBOX_XSTS_USERCODE);
             }
-            let k4 = format!("{}{}{}{}{}", "{\"identityToken\":\"XBL3.0 x=", uhs_xsts, ";", ww3, "\"}");
+            let k4 = format!("{}{}{}{}{}", "{\"identityToken\":\"XBL3.0 x=", uhs_xsts, ";", w3, "\"}");
             let t4 = UrlMethod::new(MC_LIVE)
                 .post_async(k4.as_str(), false)
                 .await
@@ -374,7 +399,11 @@ pub mod account_mod {
                     .ok_or(44)?
                     .as_str()
                     .ok_or(45)?;
-                return Ok(AccountResult::new(name, uuid, w4, "", "", ""));
+                result_account.set_name(name);
+                result_account.set_uuid(uuid);
+                result_account.set_access_token(w4);
+                result_account.set_refresh_token(refresh_token);
+                return Ok(result_account);
             }else{
                 return Err(ERR_LOGIN_NO_MINECRAFT);
             }
@@ -385,7 +414,7 @@ pub mod account_mod {
         pub async fn login_microsoft(&self, device_code: String) -> Result<AccountResult, i32> {
             use super::some_const::*;
             const MS_LIVE: &str = "https://login.microsoftonline.com/consumers/oauth2/v2.0/token";
-            let k1 = format!("grant_type=urn:ietf:params:oauth:grant-type:device_code&client_id={}&device_code={}", self.client_id, device_code);
+            let k1 = format!("grant_type=urn:ietf:params:oauth:grant-type:device_code&client_id={}&device_code={}", self.key, device_code);
             let client = UrlMethod::new(MS_LIVE);
             let g1 = client.post_async(k1.as_str(), true)
                 .await
@@ -394,12 +423,12 @@ pub mod account_mod {
             let w1 = j1.get("access_token");
             if let Some(e) = w1 {
                 let e = e.as_str().ok_or(4)?;
-                let mut a = self.microsoft(e).await?;
-                a.set_refresh_token(j1
+                let r = j1
                         .get("refresh_token")
                         .ok_or(5)?
                         .as_str()
-                        .ok_or(6)?);
+                        .ok_or(6)?;
+                let a = self.microsoft(e, r).await?;
                 Ok(a)
             } else {
                 let e1 = j1.get("error_codes").map_or(Err(7), |e| Ok(e.clone()))?;
@@ -420,7 +449,7 @@ pub mod account_mod {
         pub async fn refresh_microsoft(&self, refresh_token: String) -> Result<AccountResult, i32> {
             use super::some_const::*;
             const MS_LIVE: &str = "https://login.microsoftonline.com/consumers/oauth2/v2.0/token";
-            let k1 = format!("grant_type=refresh_token&client_id={}&refresh_token={}", self.client_id, refresh_token);
+            let k1 = format!("grant_type=refresh_token&client_id={}&refresh_token={}", self.key, refresh_token);
             let client = UrlMethod::new(MS_LIVE);
             let g1 = client.post_async(k1.as_str(), true)
                 .await
@@ -429,12 +458,12 @@ pub mod account_mod {
             let w1 = j1.get("access_token");
             if let Some(e) = w1 {
                 let e = e.as_str().ok_or(13)?;
-                let mut a = self.microsoft(e).await?;
-                a.set_refresh_token(j1
+                let r = j1
                         .get("refresh_token")
-                        .ok_or(14)?
+                        .ok_or(5)?
                         .as_str()
-                        .ok_or(15)?);
+                        .ok_or(6)?;
+                let a = self.microsoft(e, r).await?;
                 Ok(a)
             } else {
                 let e1 = j1.get("error_codes").ok_or(16)?;
@@ -446,6 +475,88 @@ pub mod account_mod {
                     Err(19)
                 }
             }
+        }
+        /**
+         * 外置登录，输入账号和密码，如果有client_token，则也填写，否则填String::new()即可。
+         */
+        pub async fn login_thirdparty(&self, username: String, password: String, client_token: String) -> Result<Vec<AccountResult>, i32> {
+            use super::some_const::*;
+            use base64::Engine;
+            let base = UrlMethod::new(self.key.as_str());
+            let base = base.get_default_async().await.ok_or(ERR_LOGIN_CANNOT_GET_METADATA)?;
+            let base = String::from_utf8(base).map_or(Err(ERR_LOGIN_CANNOT_GET_METADATA), |e| Ok(e.clone()))?;
+            if base.is_empty() { return Err(ERR_LOGIN_CANNOT_GET_METADATA) }
+            let base = base64::engine::general_purpose::STANDARD.encode(base.replace("\\/", "/"));
+            let res = format!("{}/authserver/authenticate", self.key.clone());
+            let k1: String;
+            if client_token.is_empty() {
+                k1 = format!("{}{}{}{}{}", "{\"username\":\"", username, "\",\"password\":\"", password, "\",\"requestUser\":false,\"agent\":{\"name\":\"Minecraft\",\"version\":1}}");
+            }else{
+                k1 = format!("{}{}{}{}{}{}{}", "{\"username\":\"", username, "\",\"password\":\"", password, "\",\"client_token\":\"", client_token, "\",\"requestUser\":false,\"agent\":{\"name\":\"Minecraft\",\"version\":1}}");
+            }
+            let w1 = UrlMethod::new(res.as_str());
+            let t1 = w1.post_async(k1.as_str(), false)
+                    .await
+                    .ok_or(ERR_LOGIN_USERNAME_OR_PASSWORD)?;
+            let j1 = serde_json::from_str::<serde_json::Value>(t1.as_str()).map_or(Err(46), |e| Ok(e.clone()))?;
+            let a1 = j1.get("accessToken");
+            if let None = a1 {
+                let err = j1
+                        .get("errorMessage")
+                        .ok_or(47)?
+                        .as_str()
+                        .ok_or(48)?;
+                if err.contains("invalid") && err.contains("username") && err.contains("password") {
+                    return Err(ERR_LOGIN_USERNAME_OR_PASSWORD);
+                }else {
+                    return Err(49);
+                }
+            }
+            let a1 = a1.unwrap().as_str().ok_or(50)?;
+            let r1 = j1.get("availableProfiles").ok_or(51)?.as_array().ok_or(52)?;
+            let mut v: Vec<AccountResult> = Vec::new();
+            for i in r1.into_iter() {
+                let mut ar = AccountResult::new();
+                let name = i.get("name").ok_or(53)?.as_str().ok_or(54)?;
+                let id = i.get("id").ok_or(55)?.as_str().ok_or(56)?;
+                ar.set_name(name);
+                ar.set_uuid(id);
+                ar.set_access_token(a1);
+                ar.set_client_token(client_token.as_str());
+                ar.set_base(base.as_str());
+                v.push(ar);
+            }
+            Ok(v)
+        }
+        /**
+         * 刷新外置登录，填入access_token，如果有client_token则填，否则填String::new()即可。
+         */
+        pub async fn refresh_thirdparty(&self, access_token: String, client_token: String) -> Result<AccountResult, i32> {
+            use super::some_const::*;
+            let res = format!("{}/authserver/refresh", self.key.to_string());
+            let k1: String;
+            if client_token.is_empty() {
+                k1 = format!("{}{}{}", "{\"accessToken\":\"", access_token.clone(), "\",\"requestUser\":false}");
+            }else{
+                k1 = format!("{}{}{}{}{}", "{\"accessToken\":\"", access_token.clone(), "\",\"client_token\":\"", client_token, "\",\"requestUser\":false}");
+            }
+            let t1 = UrlMethod::new(res.as_str());
+            let t1 = t1.post_async(k1.as_str(), false).await.ok_or(ERR_LOGIN_ACCESS_TOKEN_EXPIRE)?;
+            let j1 = serde_json::from_str::<serde_json::Value>(t1.as_str()).map_or(Err(57), |e| Ok(e.clone()))?;
+            let ac = j1.get("accessToken");
+            if let None = ac {
+                let err = j1.get("errorMessage").ok_or(58)?.as_str().ok_or(59)?;
+                if err.contains("invalid") && err.contains("token") {
+                    return Err(ERR_LOGIN_INVALID_ACCESS_TOKEN);
+                }else{
+                    return Err(60);
+                }
+            }
+            let ac = ac.unwrap().as_str().ok_or(61)?;
+            let mut res_acc = AccountResult::new();
+            res_acc.set_access_token(ac);
+            res_acc.set_client_token(client_token.as_str());
+            Ok(res_acc)
         }
     }
 }
@@ -528,7 +639,10 @@ pub mod main_mod {
     }
     /**
      * 该函数目前仅适用于在初始化第三方登录时对该皮肤站元数据进行base64编码。
+     * 该函数已废弃，如果想获取元数据base64编码，请自行使用account_mod下的登录一次，即可直接异步获取。
      */
+    #[deprecated(since = "0.0.8", note = "Please login thirdparty in account_mod, and auto get base64 code by sync.")]
+    #[warn(dead_code)]
     pub fn generate_thirdparty_metadata_base64(url: &str) -> String {
         use base64::Engine;
         let um = super::account_mod::UrlMethod::new(url);
@@ -1035,7 +1149,6 @@ pub mod launcher_mod {
             if let None = name { continue; }
             let name = name.unwrap();
             let expect_rule = judge_mc_rules(lib_root);
-            let mut expect_native = true;
             let mut expect_downloads = true;
             if let Some(e) = lib_root.get("downloads") {
                 if let Some(f) = e.get("classifiers") {
@@ -1049,7 +1162,7 @@ pub mod launcher_mod {
                     }
                 }
             }
-            if expect_rule && expect_native && expect_downloads { raw_list.push(name.to_string()) }
+            if expect_rule && expect_downloads { raw_list.push(name.to_string()) }
         }
         for i in raw_list.into_iter() {
             if !no_list.contains(&i) {
@@ -1466,7 +1579,7 @@ pub mod launcher_mod {
                         ));
                         result.push("-Dauthlibinjector.side=client".to_string());
                         result.push(format!("-Dauthlibinjector.yggdrasil.prefetched={}",
-                                            super::some_var::AUTHLIB_PATH.as_str()
+                                            self.account.get_base()
                         ));
                     }else{
                         panic!("You're AUTHLIB_PATH file is not exist, please retry!")
@@ -1643,6 +1756,8 @@ pub mod launcher_mod {
                 String::new(),
                 0)
         }
+        #[deprecated(since = "0.0.8", note = "Please use main_mod generate_bukkit_uuid function.")]
+        #[warn(dead_code)]
         pub fn new_offline_default(name: &str) -> Self {
             let uuid = super::main_mod::generate_bukkit_uuid(name);
             LaunchAccount::new(
@@ -1674,6 +1789,9 @@ pub mod launcher_mod {
                 url.to_string(),
                 2)
         }
+        #[deprecated(since = "0.0.8", note = "Please login thirdparty in account_mod, and auto get base64 code by sync.")]
+        #[warn(deprecated)]
+        #[warn(dead_code)]
         pub fn new_thirdparty_default(name: &str, uuid: &str, access_token: &str, url: &str) -> Self {
             LaunchAccount::new(
                 name.to_string(),

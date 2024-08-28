@@ -63,6 +63,7 @@ pub fn generated_bukkit_uuid(name: &str) -> String
 pub fn generate_thirdparty_metadata_base64(url: &str) -> String
 	返回第三方元数据的标准base64代码。【例如填写https://littleskin.cn/api/yggdrasil，返回元数据的base64。】
 	如果网络不好，则返回空。
+	该函数已废弃，因为该函数为阻塞主线程使用的，请不要使用该函数！
 
 pub fn extract_file_name(file: &str) -> String
 	返回一个文件的文件名。
@@ -216,15 +217,21 @@ impl LaunchAccount
     pub fn new_offline_default(name: &str) -> Self
     	警告同上。
     	UUID会自己按照bukkit方式生成
+		该函数已废弃，因为uuid已经在上方有了一个generate_bukkit_uuid函数。请各位自行调用。
 
     pub fn new_microsoft(name: &str, uuid: &str, access_token: &str) -> Self
-    	暂未完善，暂不公开其描述！
+		新建一个微软登录实例，
+		与离线登录不同的是，该函数多了个要求填入access_token的。
 
     pub fn new_thirdparty(name: &str, uuid: &str, access_token: &str, base: &str, url: &str) -> Self
-    	暂未完善，暂不公开其描述！
+		新建一个第三方登录实例，与微软不同的是，这里要求写入一个元数据base64码，以及一个第三方元数据登录网址。
+		其中第三方元数据网址，末尾必须是api/yggdrasil可以直接获取到元数据的。并且末尾不能有/符号。
+		填入示例：https://littleskin.cn/api/yggdrasil
 
+	#[deprecated()]
     pub fn new_thirdparty_default(name: &str, uuid: &str, access_token: &str, url: &str) -> Self
-    	暂未完善，暂不公开其描述！
+		新建一个第三方登录实例，与上述不同的是，该函数会自动通过url获取到元数据。
+		该函数已废弃，
 
 pub fn launch_game<F>(option: LaunchOption, callback: F) -> Result<(), i32>
 where
@@ -234,7 +241,7 @@ where
 	option填入上述的option，callback填入一个闭包。闭包里有一个参数，为【参数拼接成功的Vec】，返回值为Result，如果参数检测无误，则返回空，反之则返回some_const中的任意报错类型。
 	如果参数检测无误，但是在拼接启动参数时出现错误，则会直接panic，所以你可能需要catch_unwind来保证不会直接退出程序。
 	如果参数检测无误，并且启动参数拼接成功，则会执行闭包中的函数。
-	各位可以直接使用std::process::Command来执行返回闭包中的Vec参数噢！如果参数数量超过了8192个字符，你可能就需要将参数输出到外部用bat执行了（）
+	各位可以直接使用std::process::Command来执行返回闭包中的Vec参数噢！如果参数字符数量超过了8192个字符，你可能就需要将参数输出到外部用bat执行了（）
 ```
 
 ## rust_lib::account_mod
@@ -291,7 +298,7 @@ impl AccountResult
 	refresh_token: String
 		账号刷新密钥
 	client_token: String
-		第三方登录的客户端密钥（通常是UUID）
+		第三方登录的客户端密钥（通常是UUID，如果之前没填则没有。）
 	base: String
 		第三方元数据的base64编码
 	其中，refresh_token有一个set方法，但是是私有的。
@@ -299,26 +306,45 @@ impl AccountResult
 impl AccountLogin
 	本类里面全部都是【异步函数】，你可能需要使用tokio自主实现并调用运行。
 
-	pub fn new(client_id: &str) -> Self
+	pub fn new_ms(client_id: &str) -> Self
 		构建一个AccountLogin类，填入一个client_id字段。
 		client_id字段相信每个制作启动器的玩家都知道什么意思吧！这里不再赘述。
+
+	pub fn new_tp(server: &str) -> Self
+		构建一个AccountLogin类，填入一个server字段。
+		server为你的外置登录服务器，需要精确到api/yggdrasil。
+		其实这个与上面那个一样的（）你甚至可以用上面那个来构建这个，也可以用这个构建上面那个。。
 	
     pub async fn get_user_code(&self) -> Result<(String, String), i32>
 		获取用户代码。
 		通过client_id获取到一个用户代码用于登录，这个函数为两个返回值，另一个返回值是device_code。设备代码。
 		当你获取了用户代码后，你可以循环通过device_code获取到access_token，但是请间隔5s获取一次。
-		15分钟后，如果用户未登录完成，则抛出报错。
+		15分钟后，如果用户未登录完成，则返回一个指定的Err代码。
 	
     async fn microsoft(&self, access_token: &str) -> Result<AccountResult, i32>
 		私有函数，通过access_token获取到AccountResult实现。
 
     pub async fn login_microsoft(&self, device_code: String) -> Result<AccountResult, i32>
 		通过device_code获取到AccountResult实现。
-		你可以循环通过device_code然后实现该函数。该函数会返回一个AccountResult，如果不对，则会返回i32类型。
+		你可以循环通过device_code然后实现该函数。该函数会返回一个AccountResult，如果不对，则会返回一个Err类型。
 		其中，i32类型描述了此时的错误信息。请参阅some_const常量池。
 
 	pub async fn refresh_microsoft(&self, refresh_token: String) -> Result<AccountResult, i32>
 		通过refresh_token获取到AccountResult实现
 		该函数用于刷新你的access_token。你可以从第一次登录微软账号时，获取到的refresh_token进行刷新。
+
+	async fn thirdparty() -> Result<Vec<AccountResult>, i32>
+		私有函数，通过（）获取到AccountResult实现数组。
+
+	pub async fn login_thirdparty(username: &str, password: &str, client_token: &str) -> Result<Vec<AccountResult>, i32>
+		通过用户名和密码登录外置服务器，client_token为可选项，你当然可以填空来确保其没有。
+		一般来说会是有多个用户，所以这里采用了返回一个Vec<AccountResult>作为返回值。
+		如果里面只有一个用户，则返回len为1，如果还并没有使用任何一个皮肤，则会返回一个指定Err常量，因此，该Vec最小数量只能是1。
+
+	pub async fn refresh_thirdparth(access_token: String, client_token: String) -> Result<AccountResult, i32>
+		刷新第三方登录，这里仅会返回一个AccountResult，为刷新后的值。
+		这里采用的是access_token进行刷新，因为第三方登录暂时没有refresh_token。
+		如果你有提供client_token的话，也可以使用client_token进行刷新。
+		最终返回的AccountResult里，仅包含了新的access_token、以及client_token（如果你提供了的话。）
 ```
 
