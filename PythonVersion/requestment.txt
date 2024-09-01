@@ -1,0 +1,3 @@
+pip install screeninfo  # 导入屏幕模块
+pip install psutil  # 导入二进制读取模块
+pip install httpx  # 导入网络请求模块（不用requests，因为这个支持异步）

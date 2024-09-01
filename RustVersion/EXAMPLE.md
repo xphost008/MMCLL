@@ -5,7 +5,7 @@ use rust_lib::launcher_mod::*;
 pub fn start_launch(){
     let catch = std::panic::catch_unwind(|| {
     	let option = LauncherOption::new(
-    		AccountLogin::new_offline_default("SSSteve"),
+    		AccountLogin::new_offline("SSSteve", "1234567890abcdef1234567890abcdef"),
     		"D:\\Java\\bin\\java.exe",
     		"D:\\.minecraft",
     		"D:\\.minecraft\\versions\\1.21",

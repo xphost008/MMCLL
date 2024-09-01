@@ -197,6 +197,19 @@ class MainClass:
             return ""
 
     @staticmethod
+    def generate_bukkit_uuid(name: str) -> str:
+        name = "OfflinePlayer:" + name
+        m = hashlib.md5()
+        m.update(name.encode("utf-8"))
+        l = list(m.digest())
+        l[6] = l[6] & 0x0f | 0x30
+        l[8] = l[8] & 0x3f | 0x80
+        res = ""
+        for i in l:
+            res += hex(i).replace("0x", "").lower()
+        return res
+
+    @staticmethod
     def set_file(path: str, content: str):
         """
         写出内容到文件，通常写出的是普通文字而非二进制。
@@ -253,7 +266,7 @@ class MainClass:
         return current
 
     @staticmethod
-    def delete_dir_retain(path: str, suffix: str = ""):
+    def delete_dir_retain(path: str, suffix: str = "") -> bool:
         """
         该函数将删除path中的所有文件，但是唯独保留了
         :param path:

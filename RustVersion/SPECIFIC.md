@@ -1,6 +1,6 @@
 # MMCLL Rust 函数使用示例：
 
-## 警告：在该类库里的任意函数，任何含有path的，末尾均不允许加“\”符号。而且必须保证路径分割符号都是“\”，如果是“/”的话则很有可能读取不了！【请使用\\转义！】
+## 警告：在该类库里的任意函数，任何含有path的，末尾均不允许加“\”符号。而且必须保证路径分割符号都是“\”，如果是“/”的话则很有可能读取不了！【请使用两个\转义！】
 
 ## rust_lib::some_const
 
@@ -101,7 +101,7 @@ pub fn unzip(zipfile: String, extfile: String) -> bool
 	zipfile是一个文件路径、extfile是一个文件夹路径。
 	解压成功返回true
 
-pub fn delete_file_keep(dir_path: String, suffix: &str) -> bool {
+pub fn delete_file_keep(dir_path: String, suffix: &str) -> bool
 	删除文件夹中的所有文件。但是保留suffix后缀的文件
 	如果suffix填入空则默认保留所有文件夹，如果希望删掉整个文件夹，则需要对suffix乱填一个参数！
 
@@ -124,7 +124,7 @@ pub fn get_mc_inherits_from(version_path: String, ioj: &str) -> Option<String>
 pub fn replace_mc_inherits_from(mut raw_json: String, mut ins_json: String) -> Option<String>
 	将原来的json与找到的原版json进行键值替换。
 	raw_json填入【有inheritsFrom】键的json，ins_json填入【已经找到的原版版本json】的。
-	填入的是两个json的内容，而不仅仅只是填入路径。
+	填入的是两个json的内容，而不是填入路径。
 	该函数将会依次按照两个json的【mainClass、arguments->game、arguments->jvm、libraries、minecraftArguments】键进行替换和添加。
 	返回值则是新的JSON字符串！
 
@@ -138,7 +138,7 @@ pub fn get_mc_real_path(version_path: String, suffix: &str) -> Option<String>
     其中当suffix为“.json”的时候逻辑可能会略有不同，请参考下列提示
 
     其中suffix为“.json”时，则会按照【查询版本json】来查询，会直接查询该文件夹下的所有文件，然后使用json对其进行格式化。
-    如果找到一个格式化成功的文件，则查询里面是否包含id、mainClass、libraries键。如果这三个键都有的话，则判断get_mc_vanilla_version是否等于【ioj】，如果是则查询成功，返回该json的路径，使用Some接收。反之这不是一个标准json，继续查找。
+    如果找到一个格式化成功的文件，则查询里面是否包含id、mainClass、libraries键。如果这三个键都有的话，则查询成功，返回该json的路径，使用Some接收。反之这不是一个标准json，继续查找。
 
     suffix一般是以后缀为基础的。如果说不以后缀为基础，也可以用SHA1值做为基础。
     目前仅支持SHA1和后缀，如果不以这两个，则很可能会返回None
@@ -173,12 +173,12 @@ pub fn get_mc_libs(raw_json: String, root_path: &str, version_path: &str) -> Opt
 pub fn unzip_native(raw_json: String, root_path: &str, version_path: &str) -> bool
 	该函数没有啥警告，但逻辑上与get_mc_libs差不多。
 	只是这一次换成了查询natives，首先遍历libraries，找到所有包含natives字段的，如果有的话，则把name拼接到Vec上。
-	然后直接将natives解压到【versions_path】下，用extract_file_name获取到versions_path的名称，拼接上TLM-natives的文件夹。
+	然后直接将natives解压到【versions_path】下，用extract_file_name获取到versions_path的名称，拼接上${launcher_name}-natives的文件夹。
 	如果里面没有包含任何一个有natives字段的键，则不用解压
 
 impl LaunchOption
 	启动信息类，可以在里面获取到一些启动信息。
-        account: AccountLogin,	// 账号登录类【有一个专门的类，见下】
+        account: LaunchAccount,	// 账号登录类【有一个专门的类，见下】
         java_path: String,      // Java路径
         root_path: String,		// mc根路径（需要里面包含assets、libraries两个文件夹）
         version_path: String,	// 版本路径（需要里面包含版本json、版本主jar）
@@ -192,7 +192,7 @@ impl LaunchOption
         additional_game: String // 额外Game参数（使用空格分开，默认空）
     上述几个变量除了account、java_path、version_path、game_path只有get函数以外，别的都有set、get函数！
 
-	pub fn new(account: AccountLogin, java_path: &str, root_path: &str, version_path: &str, game_path: &str) -> Self
+	pub fn new(account: LaunchAccount, java_path: &str, root_path: &str, version_path: &str, game_path: &str) -> Self
 		初始化一个该类，必须传入的参数有【account、java_path、root_path、version_path】
 
 	pub fn set_xxx(&self, xxx: type)
@@ -214,6 +214,7 @@ impl LaunchAccount
     	初始化一个离线登录，第一个参数填入用户名，第二个参数填入用户uuid。
     	如果你不想自己手动生成用户uuid，你可以使用new_offline_default。
 
+	#[deprecated(since = "0.0.8", note = "Please login thirdparty in account_mod, and auto get base64 code by sync.")]
     pub fn new_offline_default(name: &str) -> Self
     	警告同上。
     	UUID会自己按照bukkit方式生成
@@ -228,7 +229,7 @@ impl LaunchAccount
 		其中第三方元数据网址，末尾必须是api/yggdrasil可以直接获取到元数据的。并且末尾不能有/符号。
 		填入示例：https://littleskin.cn/api/yggdrasil
 
-	#[deprecated()]
+	#[deprecated(since = "0.0.8", note = "Please login thirdparty in account_mod, and auto get base64 code by sync.")]
     pub fn new_thirdparty_default(name: &str, uuid: &str, access_token: &str, url: &str) -> Self
 		新建一个第三方登录实例，与上述不同的是，该函数会自动通过url获取到元数据。
 		该函数已废弃，
@@ -253,6 +254,7 @@ impl UrlMethod
     pub fn new(url: &str) -> Self
     	创建一个该类，url填入网址。
 
+    以下三个函数会阻塞主线程进行获取！
     pub fn post(&self, key: &str, that: bool) -> Option<String>
     	对网址进行post，key为post请求参数。
     	that为头声明，如果为true，则请求Content-type为：application/x-www-form-urlencoded;charset=utf-8
@@ -266,16 +268,13 @@ impl UrlMethod
     	请求头：AUTHORIZATION，值：【Bearer {key}】。
     	返回get后的网址内容！
 
-    pub fn get_default(&self) -> Option<String>
-    	对网址进行默认抓取。
-    	如果网址返回值为html，则也会返回html。如果网址为二进制下载文件，则返回下载内容。
-
     pub fn get_default(&self) -> Option<Vec<u8>>
     	对网址进行默认抓取。
     	如果网址返回值为html，则也会返回html。如果网址为二进制下载文件，则返回下载内容。
 		该函数返回值改成了Vec<u8>字节数组，这意味着它不仅可以获取网络上的文本资源，还可以保存二进制文件。
 		也就是既可以下载，也可以保存到内存里。
 
+    以下三个函数使用异步运行！
 	pub async fn post_async(&self, key: &str, that: bool) -> Option<String>
 		异步post。函数内容与post几乎一样，唯一不同的就是添加了await进行异步。
 
