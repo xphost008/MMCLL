@@ -12,6 +12,8 @@
 # -*- coding: UTF-8 -*-
 from json import JSONDecodeError  # JSON解析错误
 from typing import *  # 类型模块
+from zipfile import BadZipfile
+
 import screeninfo  # 屏幕模块
 import psutil  # 内存模块
 import re  # 正则表达式模块
@@ -54,7 +56,7 @@ ERR_LAUNCH_CUSTOM_INFO = -15  # 自定义信息错误
 
 # 以下是部分全局变量，使用时需要使用global调用
 download_source = 1  # 下载源（1是官方源，2是bmclapi）
-mc_root_json = {}  # MC元数据
+mc_root_json = {}  # MC元数据（该变量为一个dict类型的！）
 class UrlMethod:
     """
     网络请求类。
@@ -266,7 +268,7 @@ class MainClass:
         return current
 
     @staticmethod
-    def delete_dir_retain(path: str, suffix: str = "") -> bool:
+    def delete_dir_retain(path: str, suffix: str = ""):
         """
         该函数将删除path中的所有文件，但是唯独保留了
         :param path:
@@ -299,7 +301,10 @@ class MainClass:
                 except OSError:
                     return False
             with zipfile.ZipFile(zippath, "r") as fe:
-                fe.extractall(extpath)
+                try:
+                    fe.extractall(extpath)
+                except BadZipfile:
+                    return False
                 return True
         else:
             return False
@@ -458,7 +463,7 @@ class LaunchMethod:
         :param key: 判断的键（一般是game或jvm）
         :return: 返回参数列表
         """
-        arg = root.get("arguments", {}).get(key, [])
+        arg = list(MainClass.get_nested_value(root, "arguments", key, default_value=[]))
         if not arg:
             return []
         res = []
@@ -839,8 +844,8 @@ class LaunchGame:
         except JSONDecodeError:
             return []
         # 首先判断该json中是否含有id键。
-        mcid = MainClass.get_nested_value(root, "id", default_value="")
-        if mcid == "":
+        mc_id = MainClass.get_nested_value(root, "id", default_value="")
+        if mc_id == "":
             return []
         # 再判断是否有mainClass键。
         main_class = MainClass.get_nested_value(root, "mainClass", default_value="")
@@ -864,23 +869,18 @@ class LaunchGame:
         jvm = LaunchMethod.judge_arguments(root, "jvm")
         if not jvm:
             # 如果没有检测到，则置一些默认参数。此处适配于1.12.2
-            result.append("-Djava.library.path=${natives_directory}")
-            result.append("-cp")
-            result.append("${classpath}")
+            result.extend(["-Djava.library.path=${natives_directory}", "-cp", "${classpath}"])
         else:
             result.extend(jvm)
         # TODO: 此处需要预留一些空间置第三方外置登录的部分JVM参数，这个我们第二章教到外置登录再说。
         # 以下是添加最大最小内存，紧接着就要添加Game参数了。
-        result.append(f"-Xmn{self.min_memory}m")
-        result.append(f"-Xmx{self.max_memory}m")
+        result.extend([f"-Xmn{self.min_memory}m", f"-Xmx{self.max_memory}m"])
         # 下面拼接主类，然后就开始拼接游戏参数。
         result.append(main_class)
         # 如果找不到1.12.2以下的minecraftArguments参数，则尝试按照1.13版本以上的方式拼接。如果1.13以上也不行，则返回空列表。
-        game = root.get("minecraftArguments", None)
-        if game is not None:
-            game = str(game)
-            if game != "":
-                result.extend(game.split(" "))
+        game = str(MainClass.get_nested_value(root, "minecraftArguments", default_value=""))
+        if game != "":
+            result.extend(game.split(" "))
             # 这里还要多判断一次arguments里的参数，以适配LiteLoader。
             game = LaunchMethod.judge_arguments(root, "game")
             if game:
@@ -916,11 +916,10 @@ class LaunchGame:
                 .replace("${launcher_name}", LAUNCHER_NAME) \
                 .replace("${launcher_version}", LAUNCHER_VERSION) \
                 .replace("${classpath}", LaunchMethod.get_mc_libs(real_json, self.root_path, self.version_path)) \
-                .replace("${classpath_separator}", ";") \
                 .replace("${library_directory}", self.root_path + r"\libraries") \
                 .replace("${auth_player_name}", self.account.get_name()) \
                 .replace("${auth_uuid}", self.account.get_uuid()) \
-                .replace("${version_name}", mcid) \
+                .replace("${version_name}", mc_id) \
                 .replace("${game_directory}", self.game_path) \
                 .replace("${assets_root}", self.root_path + r"\assets") \
                 .replace("${assets_index_name}", asset_index) \
@@ -929,7 +928,8 @@ class LaunchGame:
                 .replace("${version_type}", self.custom_info) \
                 .replace("${user_properties}", "{}") \
                 .replace("${uuid}", self.account.get_uuid()) \
-                .replace("${game_assets}", self.root_path + r"\assets")
+                .replace("${game_assets}", self.root_path + r"\assets") \
+                .replace("${classpath_separator}", ";")
         return result
     def game_launch(self):
         def_jvm = ["-XX:+UseG1GC", "-XX:-UseAdaptiveSizePolicy", "-XX:-OmitStackTraceInFastThrow", "-Dfml.ignoreInvalidMinecraftCertificates=true", "-Dfml.ignorePatchDiscrepancies=true", "-Dlog4j2.formatMsgNoLookups=true"]

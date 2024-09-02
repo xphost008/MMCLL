@@ -7,9 +7,9 @@
  * 部分常量值，在程序的任意位置均可直接调用。
  */
 pub mod some_const {
-    pub const LAUNCHER_NANE: &str = "MMCLL";  //在使用此库时，请自觉将此值改成你的【<启动器名称>】。在使用默认方式启动时，会自动将【${launcher_name}】替换成该值。
-    pub const LAUNCHER_VERSION: &str = "0.0.1-Alpha-8"; //在使用此库时，请自觉将此值改成你的【<启动器版本>】【可以加上Alpha、Beta、Pre三个值，因为在启动替换（${launcher_version}）时用到这个值。不过各位可以自行去函数put_arguments进行修改以适配该值。】
-    pub const USER_AGENT: &str = "MMCLL/0.0.1.8";  //在使用此库时，请自觉将此值改成你的【<启动器名称>/<启动器版本>】。
+    pub const LAUNCHER_NANE: &str = "TLM";  //在使用此库时，请自觉将此值改成你的【<启动器名称>】。在使用默认方式启动时，会自动将【${launcher_name}】替换成该值。
+    pub const LAUNCHER_VERSION: &str = "0.0.1-Alpha-7"; //在使用此库时，请自觉将此值改成你的【<启动器版本>】【可以加上Alpha、Beta、Pre三个值，因为在启动替换（${launcher_version}）时用到这个值。不过各位可以自行去函数put_arguments进行修改以适配该值。】
+    pub const USER_AGENT: &str = "TLM/0.0.1.7";  //在使用此库时，请自觉将此值改成你的【<启动器名称>/<启动器版本>】。
     pub const OK: i32 = 0;  //完成
     pub const ERR_UNKNOWN_ERROR: i32 = 1;  //未知错误
     //以下是启动游戏时的部分错误代码
@@ -55,7 +55,43 @@ pub mod some_var {
     pub static mut DOWNLOAD_SOURCE: i32 = 1;  //下载源：目前仅支持两个数字，1：官方、2：BMCLAPI
     pub static mut MC_ROOT_JSON: String = String::new();  //mc的元数据（可以自己赋值也可以由类库帮忙赋值！）仅能赋值元数据值，如果赋上了别的值，后果自负！
     pub static mut AUTHLIB_PATH: String = String::new();  //设置第三方登录的模块jar文件。在使用第三方登录的时候一定要设置该参数！
+    #[allow(unused)]
+    pub static mut BIGGEST_THREAD: i32 = 64;  //最大线程，但是在Rust里指的是最大并发量（必须要提前赋值，否则将按照默认64处理。）
     // pub static mut AUTHLIB_URL: String = String::new();
+}
+pub mod download_mod {
+    #[allow(unused)]
+    pub struct DownloadMethod {
+        key: String,
+    }
+    impl DownloadMethod {
+        /**
+         * 新建一个下载函数。key填入版本
+         */
+        #[allow(unused)]
+        pub fn new(key: &str) -> Self {
+            Self {
+                key: key.to_string(),
+            }
+        }
+        #[allow(unused)]
+        #[allow(unused_variables)]
+        pub async fn install_minecraft(save_path: &str, root_path: &str) -> Result<(), i32> {
+            Ok(())
+        }
+        #[allow(unused)]
+        pub async fn install_java() -> Result<(), i32> {
+            Ok(())
+        }
+        #[allow(unused)]
+        pub async fn install_forge() -> Result<(), i32> {
+            Ok(())
+        }
+        #[allow(unused)]
+        pub async fn download_custom() -> Result<(), i32> {
+            Ok(())
+        }
+    }
 }
 pub mod account_mod {
     pub struct UrlMethod {
@@ -289,12 +325,10 @@ pub mod account_mod {
                 .await
                 .map_or(Err(super::some_const::ERR_LOGIN_CANNOT_GET_USERCODE), |s| Ok(s.clone()))?;
             let login = serde_json::from_str::<serde_json::Value>(res.as_str()).map_err(|_| super::some_const::ERR_LOGIN_CANNOT_GET_USERCODE )?;
-            let user_code = login.get("user_code")
-                .ok_or(super::some_const::ERR_LOGIN_CANNOT_GET_USERCODE )?
+            let user_code = login["user_code"]
                 .as_str()
                 .ok_or(super::some_const::ERR_LOGIN_CANNOT_GET_USERCODE )?;
-            let device_code = login.get("device_code")
-                .ok_or(super::some_const::ERR_LOGIN_CANNOT_GET_USERCODE )?
+            let device_code = login["device_code"]
                 .as_str()
                 .ok_or(super::some_const::ERR_LOGIN_CANNOT_GET_USERCODE )?;
             Ok((user_code.to_string(), device_code.to_string()))
@@ -316,36 +350,21 @@ pub mod account_mod {
                 .ok_or(ERR_LOGIN_XBOX_LIVE_INVALID)?;
             let j2 = serde_json::from_str::<serde_json::Value>(t2.as_str())
                 .map_err(|_| 21)?;
-            let w2 = j2
-                .get("Token")
-                .ok_or(22)?
+            let w2 = j2["Token"]
                 .as_str()
-                .ok_or(23)?;
-            let uhs_xbox = j2
-                .get("DisplayClaims")
-                .ok_or(24)?
-                .get("xui")
-                .ok_or(25)?
-                .get(0)
-                .ok_or(26)?
-                .get("uhs")
-                .ok_or(27)?
-                .as_str()
-                .ok_or(28)?;
+                .ok_or(22)?;
+            let uhs_xbox = j2["DisplayClaims"]["xui"][0]["uhs"].as_str().ok_or(23)?;
             let k3 = format!("{}{}{}", "{\"Properties\":{\"SandboxId\":\"RETAIL\",\"UserTokens\":[\"", w2, "\"]},\"RelyingParty\":\"rp://api.minecraftservices.com/\",\"TokenType\":\"JWT\"}");
             let t3 = UrlMethod::new(XSTS_LIVE)
                 .post_async(k3.as_str(), false)
                 .await
                 .ok_or(ERR_LOGIN_XSTS_LIVE_INVALID)?;
-            let j3 = serde_json::from_str::<serde_json::Value>(t3.as_str()).map_err(|_| 29)?;
-            let w3 = j3
-                .get("Token");
+            let j3 = serde_json::from_str::<serde_json::Value>(t3.as_str()).map_err(|_| 24)?;
+            let w3 = j3["Token"].as_str();
             if let None = w3 {
-                let ww3 = j3
-                    .get("XErr")
-                    .ok_or(31)?
+                let ww3 = j3["XErr"]
                     .as_i64()
-                    .ok_or(32)?;
+                    .ok_or(25)?;
                 if ww3 == 2148916233 {
                     return Err(ERR_LOGIN_XSTS_NO_XBOX);
                 } else if ww3 == 2148916235 {
@@ -355,58 +374,31 @@ pub mod account_mod {
                 } else if ww3 == 2148916238 {
                     return Err(ERR_LOGIN_XSTS_UNDER_18);
                 } else {
-                    return Err(33);
+                    return Err(26);
                 }
             }
-            let w3 = w3.unwrap().as_str().ok_or(30)?;
-            let uhs_xsts = j3
-                .get("DisplayClaims")
-                .ok_or(34)?
-                .get("xui")
-                .ok_or(35)?
-                .get(0)
-                .ok_or(36)?
-                .get("uhs")
-                .ok_or(37)?
-                .as_str()
-                .ok_or(38)?;
-            if uhs_xbox != uhs_xsts {
-                return Err(ERR_LOGIN_XBOX_XSTS_USERCODE);
-            }
+            let w3 = w3.ok_or(27)?;
+            let uhs_xsts = j3["DisplayClaims"]["xui"][0]["uhs"].as_str().ok_or(28)?;
+            if uhs_xbox != uhs_xsts { return Err(ERR_LOGIN_XBOX_XSTS_USERCODE); }
             let k4 = format!("{}{}{}{}{}", "{\"identityToken\":\"XBL3.0 x=", uhs_xsts, ";", w3, "\"}");
             let t4 = UrlMethod::new(MC_LIVE)
                 .post_async(k4.as_str(), false)
                 .await
                 .ok_or(ERR_LOGIN_XBOX_LIVE_INVALID)?;
-            let j4 = serde_json::from_str::<serde_json::Value>(t4.as_str()).map_err(|_| 39)?;
-            let w4 = j4
-                .get("access_token")
-                .ok_or(40)?
-                .as_str()
-                .ok_or(41)?;
+            let j4 = serde_json::from_str::<serde_json::Value>(t4.as_str()).map_err(|_| 29)?;
+            let w4 = j4["access_token"].as_str().ok_or(30)?;
             let t5 = UrlMethod::new(VERIFY)
                 .get_async(w4)
                 .await
                 .ok_or(ERR_LOGIN_MC_INVALID)?;
-            let j5 = serde_json::from_str::<serde_json::Value>(t5.as_str()).map_err(|_| 42)?;
-            let name = j5.get("name");
-            if let Some(e) = name {
-                let name = e
-                    .as_str()
-                    .ok_or(43)?;
-                let uuid = j5
-                    .get("id")
-                    .ok_or(44)?
-                    .as_str()
-                    .ok_or(45)?;
-                result_account.set_name(name);
-                result_account.set_uuid(uuid);
-                result_account.set_access_token(w4);
-                result_account.set_refresh_token(refresh_token);
-                return Ok(result_account);
-            }else{
-                return Err(ERR_LOGIN_NO_MINECRAFT);
-            }
+            let j5 = serde_json::from_str::<serde_json::Value>(t5.as_str()).map_err(|_| 31)?;
+            let name = j5["name"].as_str().ok_or(ERR_LOGIN_NO_MINECRAFT)?;
+            let uuid = j5["id"].as_str().ok_or(ERR_LOGIN_NO_MINECRAFT)?;
+            result_account.set_name(name);
+            result_account.set_uuid(uuid);
+            result_account.set_access_token(w4);
+            result_account.set_refresh_token(refresh_token);
+            return Ok(result_account);
         }
         /**
          * 公开函数，用于登录微软账号。需要提供一个device_code。
@@ -420,20 +412,15 @@ pub mod account_mod {
                 .await
                 .map_or(Err(2), |s| Ok(s.clone()))?;
             let j1 = serde_json::from_str::<serde_json::Value>(g1.as_str()).map_err(|_| 3)?;
-            let w1 = j1.get("access_token");
+            let w1 = j1["access_token"].as_str();
             if let Some(e) = w1 {
-                let e = e.as_str().ok_or(4)?;
-                let r = j1
-                        .get("refresh_token")
-                        .ok_or(5)?
+                let r = j1["refresh_token"]
                         .as_str()
-                        .ok_or(6)?;
+                        .ok_or(4)?;
                 let a = self.microsoft(e, r).await?;
                 Ok(a)
             } else {
-                let e1 = j1.get("error_codes").map_or(Err(7), |e| Ok(e.clone()))?;
-                let e1 = e1.get(0).map_or(Err(8), |e| Ok(e.clone()))?;
-                let e1 = e1.as_i64().map_or(Err(9), |e| Ok(e.clone()))?;
+                let e1 = j1["error_code"][0].as_i64().ok_or(5)?;
                 if e1 == 70016 {
                     Err(ERR_LOGIN_DEVICE_CODE_INVALID)
                 }else if e1 == 70020 {
@@ -455,24 +442,19 @@ pub mod account_mod {
                 .await
                 .map_or(Err(11), |s| Ok(s.clone()))?;
             let j1 = serde_json::from_str::<serde_json::Value>(g1.as_str()).map_err(|_| 12)?;
-            let w1 = j1.get("access_token");
+            let w1 = j1["access_token"].as_str();
             if let Some(e) = w1 {
-                let e = e.as_str().ok_or(13)?;
-                let r = j1
-                        .get("refresh_token")
-                        .ok_or(5)?
+                let r = j1["refresh_token"]
                         .as_str()
-                        .ok_or(6)?;
+                        .ok_or(13)?;
                 let a = self.microsoft(e, r).await?;
                 Ok(a)
             } else {
-                let e1 = j1.get("error_codes").ok_or(16)?;
-                let e1 = e1.get(0).ok_or(17)?;
-                let e1 = e1.as_i64().ok_or(18)?;
+                let e1 = j1["error_code"][0].as_i64().ok_or(14)?;
                 if e1 == 70011 {
                     Err(ERR_LOGIN_REFRESH_TOKEN_EXPIRE)
                 }else{
-                    Err(19)
+                    Err(15)
                 }
             }
         }
@@ -499,26 +481,22 @@ pub mod account_mod {
                     .await
                     .ok_or(ERR_LOGIN_USERNAME_OR_PASSWORD)?;
             let j1 = serde_json::from_str::<serde_json::Value>(t1.as_str()).map_or(Err(46), |e| Ok(e.clone()))?;
-            let a1 = j1.get("accessToken");
+            let a1 = j1["accessToken"].as_str();
             if let None = a1 {
-                let err = j1
-                        .get("errorMessage")
-                        .ok_or(47)?
-                        .as_str()
-                        .ok_or(48)?;
+                let err = j1["errorMessage"].as_str().ok_or(47)?;
                 if err.contains("invalid") && err.contains("username") && err.contains("password") {
                     return Err(ERR_LOGIN_USERNAME_OR_PASSWORD);
                 }else {
-                    return Err(49);
+                    return Err(48);
                 }
             }
-            let a1 = a1.unwrap().as_str().ok_or(50)?;
-            let r1 = j1.get("availableProfiles").ok_or(51)?.as_array().ok_or(52)?;
+            let a1 = a1.ok_or(49)?;
+            let r1 = j1.get("availableProfiles").ok_or(50)?.as_array().ok_or(51)?;
             let mut v: Vec<AccountResult> = Vec::new();
             for i in r1.into_iter() {
                 let mut ar = AccountResult::new();
-                let name = i.get("name").ok_or(53)?.as_str().ok_or(54)?;
-                let id = i.get("id").ok_or(55)?.as_str().ok_or(56)?;
+                let name = i["name"].as_str().ok_or(52)?;
+                let id = i["id"].as_str().ok_or(53)?;
                 ar.set_name(name);
                 ar.set_uuid(id);
                 ar.set_access_token(a1);
@@ -542,17 +520,17 @@ pub mod account_mod {
             }
             let t1 = UrlMethod::new(res.as_str());
             let t1 = t1.post_async(k1.as_str(), false).await.ok_or(ERR_LOGIN_ACCESS_TOKEN_EXPIRE)?;
-            let j1 = serde_json::from_str::<serde_json::Value>(t1.as_str()).map_or(Err(57), |e| Ok(e.clone()))?;
-            let ac = j1.get("accessToken");
+            let j1 = serde_json::from_str::<serde_json::Value>(t1.as_str()).map_or(Err(54), |e| Ok(e.clone()))?;
+            let ac = j1["accessToken"].as_str();
             if let None = ac {
-                let err = j1.get("errorMessage").ok_or(58)?.as_str().ok_or(59)?;
+                let err = j1["errorMessage"].as_str().ok_or(55)?;
                 if err.contains("invalid") && err.contains("token") {
                     return Err(ERR_LOGIN_INVALID_ACCESS_TOKEN);
                 }else{
-                    return Err(60);
+                    return Err(56);
                 }
             }
-            let ac = ac.unwrap().as_str().ok_or(61)?;
+            let ac = ac.ok_or(57)?;
             let mut res_acc = AccountResult::new();
             res_acc.set_access_token(ac);
             res_acc.set_client_token(client_token.as_str());
@@ -641,8 +619,8 @@ pub mod main_mod {
      * 该函数目前仅适用于在初始化第三方登录时对该皮肤站元数据进行base64编码。
      * 该函数已废弃，如果想获取元数据base64编码，请自行使用account_mod下的登录一次，即可直接异步获取。
      */
+    #[allow(dead_code, deprecated)]
     #[deprecated(since = "0.0.8", note = "Please login thirdparty in account_mod, and auto get base64 code by sync.")]
-    #[warn(dead_code)]
     pub fn generate_thirdparty_metadata_base64(url: &str) -> String {
         use base64::Engine;
         let um = super::account_mod::UrlMethod::new(url);
@@ -743,30 +721,19 @@ pub mod launcher_mod {
      */
     pub fn get_mc_vanilla_version(json: String) -> Option<String> {
         let root = serde_json::from_str::<serde_json::Value>(json.as_str()).ok()?;
-        let cid = root.get("clientVersion");
-        if let Some(e) = cid {
-            if let Some(e) = e.as_str() {
-                if !e.is_empty() {
-                    return Some(e.to_string());
-                }
+        if let Some(e) = root["clientVersion"].as_str() {
+            if !e.is_empty() {
+                return Some(e.to_string());
             }
         }
-        let patch = root.get("patches");
-        if let None = patch { return None; }
-        if let Some(e) = patch.unwrap().as_array() {
+        if let Some(e) = root["patches"].as_array() {
             for i in e.into_iter() {
-                let pat = i.as_object();
-                if let None = pat { continue; }
-                let pat = pat.unwrap();
-                let id = pat.get("id");
-                if let None = id { continue; }
-                let id = id.unwrap().as_str();
+                let id = i["id"].as_str();
                 if let None = id { continue; }
                 let id = id.unwrap();
                 if id.eq("game") {
-                    let mcid = pat.get("version");
-                    if let None = mcid { continue; }
-                    if let Some(f) = mcid.unwrap().as_str() {
+                    let mcid = i["version"].as_str();
+                    if let Some(f) = mcid {
                         if !f.is_empty(){
                             return Some(f.to_string());
                         }
@@ -774,41 +741,29 @@ pub mod launcher_mod {
                 }
             }
         }
-        if let Some(w) = root.get("releaseTime") {
-            if let Some(real_time) = w.as_str() {
-                unsafe {
-                    let v = match super::some_var::DOWNLOAD_SOURCE {
-                        2 => { "https://bmclapi2.bangbang93.com/mc/game/version_manifest.json" }
-                        _ => { "https://piston-meta.mojang.com/mc/game/version_manifest.json" }
-                    };
-                    if super::some_var::MC_ROOT_JSON.is_empty() {
-                        let url = super::account_mod::UrlMethod::new(v);
-                        if let Some(e) = url.get_default() {
-                            let e = String::from_utf8(e);
-                            if let Ok(f) = e {
-                                super::some_var::MC_ROOT_JSON = f.clone();
-                            }
+        if let Some(w) = root["releaseTime"].as_str() {
+            unsafe {
+                let v = match super::some_var::DOWNLOAD_SOURCE {
+                    2 => { "https://bmclapi2.bangbang93.com/mc/game/version_manifest.json" }
+                    _ => { "https://piston-meta.mojang.com/mc/game/version_manifest.json" }
+                };
+                if super::some_var::MC_ROOT_JSON.is_empty() {
+                    let url = super::account_mod::UrlMethod::new(v);
+                    if let Some(e) = url.get_default() {
+                        let e = String::from_utf8(e);
+                        if let Ok(f) = e {
+                            super::some_var::MC_ROOT_JSON = f.clone();
                         }
                     }
-                    if !super::some_var::MC_ROOT_JSON.is_empty(){
-                        if let Ok(e) = serde_json::from_str::<serde_json::Value>(super::some_var::MC_ROOT_JSON.as_str()) {
-                            if let Some(f) = e.as_object() {
-                                if let Some(v) = f.get("versions") {
-                                    if let Some(g) = v.as_array() {
-                                        for h in g.into_iter() {
-                                            if let Some(i) = h.as_object() {
-                                                if let Some(r) = i.get("releaseTime") {
-                                                    if let Some(j) = r.as_str() {
-                                                        if j.eq(real_time) {
-                                                            if let Some(d) = i.get("id") {
-                                                                if let Some(k) = d.as_str() {
-                                                                    return Some(k.to_string());
-                                                                }
-                                                            }
-                                                        }
-                                                    }
-                                                }
-                                            }
+                }
+                if !super::some_var::MC_ROOT_JSON.is_empty(){
+                    if let Ok(e) = serde_json::from_str::<serde_json::Value>(super::some_var::MC_ROOT_JSON.as_str()) {
+                        if let Some(g) = e["version"].as_array() {
+                            for h in g.into_iter() {
+                                if let Some(j) = h["releaseTime"].as_str() {
+                                    if j.eq(w) {
+                                        if let Some(d) = h["id"].as_str() {
+                                            return Some(d.to_string());
                                         }
                                     }
                                 }
@@ -818,10 +773,8 @@ pub mod launcher_mod {
                 }
             }
         }
-        if let Some(f) = root.get("id") {
-            if let Some(e) = f.as_str() {
-                if !e.is_empty() { return Some(e.to_string()); }
-            }
+        if let Some(e) = root["id"].as_str() {
+            if !e.is_empty() { return Some(e.to_string()); }
         }
         None
     }
@@ -914,28 +867,25 @@ pub mod launcher_mod {
             let real_path = get_mc_real_path(version_path.clone(), ".json")?;
             let real_file = super::main_mod::get_file(real_path.as_str())?;
             let root = serde_json::from_str::<serde_json::Value>(real_file.as_str()).ok()?;
-            let root = root.as_object()?;
-            if let Some(f) = root.get(ioj) {
-                if let Some(e) = f.as_str() {
-                    if e.is_empty() { return Some(version_path.clone()) }
-                    let parent_path = path.parent()?;
-                    let dir = walkdir::WalkDir::new(parent_path).min_depth(1).max_depth(1);
-                    for i in dir.into_iter().filter_map(|e| e.ok()) {
-                        let pa = i.path();
-                        if pa.is_file() { continue; }
-                        let ps = pa.display().to_string();
-                        let version_json = get_mc_real_path(ps.clone(), ".json");
-                        if let None = version_json { continue; }
-                        let version_json = version_json.unwrap();
-                        let json_content = super::main_mod::get_file(version_json.as_str());
-                        if let None = json_content { continue; }
-                        let json_content = json_content.unwrap();
-                        let vanilla_version = get_mc_vanilla_version(json_content);
-                        if let None = vanilla_version { continue; }
-                        let vanilla_version = vanilla_version.unwrap();
-                        if vanilla_version.eq(e) { return Some(ps.clone()); }
-                    }
-                }else{ return Some(version_path.clone()); }
+            if let Some(e) = root[ioj].as_str() {
+                if e.is_empty() { return Some(version_path.clone()) }
+                let parent_path = path.parent()?;
+                let dir = walkdir::WalkDir::new(parent_path).min_depth(1).max_depth(1);
+                for i in dir.into_iter().filter_map(|e| e.ok()) {
+                    let pa = i.path();
+                    if pa.is_file() { continue; }
+                    let ps = pa.display().to_string();
+                    let version_json = get_mc_real_path(ps.clone(), ".json");
+                    if let None = version_json { continue; }
+                    let version_json = version_json.unwrap();
+                    let json_content = super::main_mod::get_file(version_json.as_str());
+                    if let None = json_content { continue; }
+                    let json_content = json_content.unwrap();
+                    let vanilla_version = get_mc_vanilla_version(json_content);
+                    if let None = vanilla_version { continue; }
+                    let vanilla_version = vanilla_version.unwrap();
+                    if vanilla_version.eq(e) { return Some(ps.clone()); }
+                }
             }else{ return Some(version_path.clone()); }
         }
         None
@@ -955,10 +905,10 @@ pub mod launcher_mod {
         let rt_raw = rt_raw.as_object()?;
         let mut rt_ins = serde_json::from_str::<serde_json::Value>(ins_json.as_str()).ok()?;
         let rt_ins = rt_ins.as_object_mut()?;
-        let mc = rt_raw.get("mainClass")?.as_str()?;
+        let mc = rt_raw["mainClass"].as_str()?;
         rt_ins.remove("mainClass");
         rt_ins.insert("mainClass".to_string(), serde_json::Value::String(mc.to_string()));
-        let id = rt_raw.get("id")?.as_str()?;
+        let id = rt_raw["id"].as_str()?;
         rt_ins.remove("id");
         rt_ins.insert("id".to_string(), serde_json::Value::String(id.to_string()));
         let raw_lib = rt_raw.get("libraries");
@@ -1035,21 +985,12 @@ pub mod launcher_mod {
                         let root = serde_json::from_str::<serde_json::Value>(file_content.as_str());
                         if let Err(_) = root { continue; }
                         let root = root.unwrap();
-                        let root = root.as_object();
-                        if let None = root { continue; }
-                        let root = root.unwrap();
-                        let libr = root.get("libraries");
-                        if let None = libr { continue; }
-                        let libr = libr.unwrap().is_array();
+                        let libr = root["libraries"].is_array();
                         if !libr { continue; }
-                        let mics = root.get("mainClass");
-                        if let None = mics { continue; }
-                        let mics = mics.unwrap().as_str();
-                        if let None = mics { continue; }
-                        let idid = root.get("id");
-                        if let None = idid { continue; }
-                        let idid = idid.unwrap().as_str();
-                        if let None = idid { continue; }
+                        let mics = root["mainClass"].is_string();
+                        if !mics { continue; }
+                        let idid = root["id"].is_string();
+                        if !idid { continue; }
                         Some(ps)
                     } else {
                         Some(ps)
@@ -1071,7 +1012,7 @@ pub mod launcher_mod {
      */
     pub fn judge_arguments(args_json: String, key: &str) -> Option<Vec<String>>{
         let root = serde_json::from_str::<serde_json::Value>(args_json.as_str()).ok()?;
-        let argu = root.get("arguments")?.get(key)?.as_array()?;
+        let argu = root["arguments"][key].as_array()?;
         let mut res: Vec<String> = Vec::new();
         for i in argu.into_iter() {
             let i_str = serde_json::to_string(i);
@@ -1090,39 +1031,24 @@ pub mod launcher_mod {
      * 单纯只是一个判断版本json里的libraries中，有rules的类库，是否allow在windows上。
      * 需要填入一个serde_json的对象Map值！而且该对象必须已经从rules中取了出来！
      */
-    pub fn judge_mc_rules(root: &serde_json::Map<String, serde_json::Value>) -> bool {
-        let rules = root.get("rules");
-        if let None = rules { return true; }
-        let rules = rules.unwrap().as_array();
+    pub fn judge_mc_rules(root: &serde_json::Value) -> bool {
+        let rules = root["rules"].as_array();
         if let None = rules { return true; }
         let rules = rules.unwrap();
         for i in rules.into_iter() {
-            let rule_1 = i.as_object();
-            if let None = rule_1 { continue; }
-            let rule_1 = rule_1.unwrap();
-            let action = rule_1.get("action");
-            if let None = action { continue; }
-            let action = action.unwrap().as_str();
+            let action = i["action"].as_str();
             if let None = action { continue; }
             let action = action.unwrap();
             if action.eq("allow") {
-                let rule_2 = rule_1.get("os");
-                if let None = rule_2 { continue; }
-                let rule_2 = rule_2.unwrap().get("name");
-                if let None = rule_2 { continue; }
-                let rule_2 = rule_2.unwrap().as_str();
-                if let None = rule_2 { continue; }
-                let rule_2 = rule_2.unwrap();
-                if !rule_2.eq("windows") { return false; }
+                let os_name = i["os"]["name"].as_str();
+                if let None = os_name { continue; }
+                let os_name = os_name.unwrap();
+                if !os_name.eq("windows") { return false; }
             }else if action.eq("disallow") {
-                let rule_2 = rule_1.get("os");
-                if let None = rule_2 { continue; }
-                let rule_2 = rule_2.unwrap().get("name");
-                if let None = rule_2 { continue; }
-                let rule_2 = rule_2.unwrap().as_str();
-                if let None = rule_2 { continue; }
-                let rule_2 = rule_2.unwrap();
-                if rule_2.eq("windows") { return false; }
+                let os_name = i["os"]["name"].as_str();
+                if let None = os_name { continue; }
+                let os_name = os_name.unwrap();
+                if os_name.eq("windows") { return false; }
             }
         }
         true
@@ -1138,19 +1064,14 @@ pub mod launcher_mod {
         let mut temp_list: Vec<String> = Vec::new();
         let mut no_opt: Vec<String> = Vec::new();
         let root = serde_json::from_str::<serde_json::Value>(raw_json.as_str()).ok()?;
-        let json_lib = root.get("libraries")?.as_array()?;
+        let json_lib = root["libraries"].as_array()?;
         for i in json_lib.into_iter() {
-            let lib_root = i.as_object();
-            if let None = lib_root { continue; }
-            let lib_root = lib_root.unwrap();
-            let name = lib_root.get("name");
-            if let None = name { continue; }
-            let name = name.unwrap().as_str();
+            let name = i["name"].as_str();
             if let None = name { continue; }
             let name = name.unwrap();
-            let expect_rule = judge_mc_rules(lib_root);
+            let expect_rule = judge_mc_rules(&i.clone());
             let mut expect_downloads = true;
-            if let Some(e) = lib_root.get("downloads") {
+            if let Some(e) = i.get("downloads") {
                 if let Some(f) = e.get("classifiers") {
                     if let Some(_) = f.as_object() {
                         expect_downloads = false;
@@ -1245,29 +1166,15 @@ pub mod launcher_mod {
         let root = serde_json::from_str::<serde_json::Value>(raw_json.as_str());
         if let Err(_) = root { return false; }
         let root = root.unwrap();
-        let root = root.as_object();
-        if let None = root{ return false; }
-        let root = root.unwrap();
-        let json_lib = root.get("libraries");
-        if let None = json_lib { return false; }
-        let json_lib = json_lib.unwrap().as_array();
+        let json_lib = root["libraries"].as_array();
         if let None = json_lib { return false; } 
         let json_lib = json_lib.unwrap();
         for i in json_lib.into_iter() {
-            let lib_root = i.as_object();
-            if let None = lib_root { continue; }
-            let lib_root = lib_root.unwrap();
-            let expect_rule = judge_mc_rules(lib_root);
-            let lib_name = lib_root.get("name");
-            if let None = lib_name { continue; }
-            let lib_name = lib_name.unwrap().as_str();
+            let expect_rule = judge_mc_rules(&i.clone());
+            let lib_name = i["name"].as_str();
             if let None = lib_name { continue; }
             let lib_name = lib_name.unwrap();
-            let lib_arch = lib_root.get("natives");
-            if let None = lib_arch { continue; }
-            let lib_arch = lib_arch.unwrap().get("windows");
-            if let None = lib_arch { continue; }
-            let lib_arch = lib_arch.unwrap().as_str();
+            let lib_arch = i["natives"]["windows"].as_str();
             if let None = lib_arch { continue; }
             let lib_arch = lib_arch.unwrap();
             if expect_rule { raw_list.push(format!("{}:{}", lib_name, lib_arch)) }
@@ -1504,17 +1411,10 @@ pub mod launcher_mod {
                 let json = serde_json::from_str::<serde_json::Value>(ih.unwrap().replace("\\/", "/").as_str());
                 if let Err(_) = json { return ERR_UNKNOWN_ERROR; }
                 let json = json.unwrap();
-                let json = json.as_object();
-                if let None = json { return ERR_UNKNOWN_ERROR; }
-                let json = json.unwrap();
-                let name = json.get("name");
-                if let None = name { return ERR_LAUNCH_ACCOUNT_NO_LEGAL; }
-                let name = name.unwrap().as_str();
+                let name = json["name"].as_str();
                 if let None = name { return ERR_LAUNCH_ACCOUNT_NO_LEGAL; }
                 let name = name.unwrap();
-                let uuid = json.get("id");
-                if let None = uuid { return ERR_LAUNCH_ACCOUNT_NO_LEGAL; }
-                let uuid = uuid.unwrap().as_str();
+                let uuid = json["id"].as_str();
                 if let None = uuid { return ERR_LAUNCH_ACCOUNT_NO_LEGAL; }
                 let uuid = uuid.unwrap();
                 if name != self.account.get_name() && uuid != self.account.get_name() { return ERR_LAUNCH_ACCOUNT_ACCESS_TOKEN; }
@@ -1546,9 +1446,9 @@ pub mod launcher_mod {
          */
         fn put_arguments(&self, real_json: String, def_jvm: String, defn_jvm: String) -> Option<Vec<String>> {
             let root = serde_json::from_str::<serde_json::Value>(real_json.as_str()).ok()?;
-            let mcid = root.get("id")?.as_str()?;
-            let main_class = root.get("mainClass")?.as_str()?;
-            let asset_index = root.get("assetIndex")?.get("id")?.as_str()?;
+            let mcid = root["id"].as_str()?;
+            let main_class = root["mainClass"].as_str()?;
+            let asset_index = root["assetIndex"]["id"].as_str()?;
             let mut result: Vec<String> = Vec::new();
             let def_jvm: Vec<String> = def_jvm.split_whitespace().collect::<Vec<&str>>().iter().map(|e| String::from(*e)).collect();
             let defn_jvm: Vec<String> = defn_jvm.split_whitespace().collect::<Vec<&str>>().iter().map(|e| String::from(*e)).collect();
@@ -1756,8 +1656,8 @@ pub mod launcher_mod {
                 String::new(),
                 0)
         }
+        #[allow(dead_code, deprecated)]
         #[deprecated(since = "0.0.8", note = "Please use main_mod generate_bukkit_uuid function.")]
-        #[warn(dead_code)]
         pub fn new_offline_default(name: &str) -> Self {
             let uuid = super::main_mod::generate_bukkit_uuid(name);
             LaunchAccount::new(
@@ -1789,9 +1689,8 @@ pub mod launcher_mod {
                 url.to_string(),
                 2)
         }
+        #[allow(dead_code, deprecated)]
         #[deprecated(since = "0.0.8", note = "Please login thirdparty in account_mod, and auto get base64 code by sync.")]
-        #[warn(deprecated)]
-        #[warn(dead_code)]
         pub fn new_thirdparty_default(name: &str, uuid: &str, access_token: &str, url: &str) -> Self {
             LaunchAccount::new(
                 name.to_string(),

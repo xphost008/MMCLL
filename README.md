@@ -29,7 +29,7 @@
 |C++|CppVersion|0%|
 |Java|JavaVersion|0%|
 |C#|CSVersion|0%|
-|Python|PythonVersion|3%|
+|Python|PythonVersion|18%|
 |Delphi|DelphiVersion|5%|
 |易语言|EVersion|0%|
 |Go|GoVersion|0%|

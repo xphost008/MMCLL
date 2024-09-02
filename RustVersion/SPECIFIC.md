@@ -149,8 +149,8 @@ pub fn judge_arguments(args_json: String, key: &str) -> Option<Vec<String>>
 	key填入【game或jvm】。
 	该函数会自动略过含有rules值的键，也就是说rules里包含的键需要各位自行判断架构！
 
-pub fn judge_mc_rules(root: &serde_json::Map<String, serde_json::Value>) -> bool 
-	很抱歉，该函数由于技术原因！参数必须填入已经被serde_json给转成了Map后的值！
+pub fn judge_mc_rules(root: &serde_json::Value) -> bool
+	很抱歉，该函数由于为了方便！参数必须填入已经被serde_json给转成了Value后的值！
 	该参数会在你遍历libraries的时候，自动判断rules的值是否允许windows进入cp！
 	该函数会判断(rules->action if allow then rules->os->name if windows)(rules->action if disallow then rules->os->name if not windows)
 	返回上述，如果为true则返回true，反之返回false！
