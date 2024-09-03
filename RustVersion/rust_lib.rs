@@ -66,7 +66,11 @@ pub mod download_mod {
     }
     impl DownloadMethod {
         /**
-         * 新建一个下载函数。key填入版本
+         * 新建一个下载实现。key根据需求填入。
+         * Java的话，填入alpha、beta、gamma
+         * MC原版的话，填入版本号
+         * 如果要装模组加载器，则在调用函数的时候使用版本。
+         * 如果是下载自定义文件，填入url
          */
         #[allow(unused)]
         pub fn new(key: &str) -> Self {
@@ -75,8 +79,7 @@ pub mod download_mod {
             }
         }
         #[allow(unused)]
-        #[allow(unused_variables)]
-        pub async fn install_minecraft(save_path: &str, root_path: &str) -> Result<(), i32> {
+        pub async fn install_minecraft() -> Result<(), i32> {
             Ok(())
         }
         #[allow(unused)]
@@ -849,14 +852,7 @@ pub mod launcher_mod {
      * 可以将字符串中的数字提取出来，或者是字符串中的非数字【字符】提取出来！
      */
     pub fn extract_number(ext: String, isnum: bool) -> String {
-        let mut temp = String::new();
-        if ext.len() == 0 { return String::new(); }
-        for i in ext.chars() {
-            if isnum == i.is_numeric() {
-                temp.push(i);
-            }
-        }
-        temp.clone()
+        ext.chars().filter(|&c| if isnum {c.is_numeric()} else {c.is_ascii_alphabetic()}).collect::<String>()
     }
     /**
      * 根据找到的json中的inheritsFrom或者jar值，准确的找到另一个有关该原版的版本文件夹。

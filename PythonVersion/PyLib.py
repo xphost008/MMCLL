@@ -972,3 +972,15 @@ def launch_game(option: LaunchOption, callback: Callable[[list], None]) -> int:
     if code == OK:
         res.game_launch()
     return code
+
+# import subprocess
+# def gen(aa: list):
+#     for i in aa:
+#         print(i)
+#     subprocess.run(aa)
+
+# if __name__ == '__main__':
+#     a = LaunchAccount.new_offline("SSSteve", "1234567890abcdef1234567890abcdef")
+#     b = LaunchOption(a, r"D:\Languages\Java\jdk-21.0.4\bin\java.exe", r"D:\mc\testmc\.minecraft", r"D:\mc\testmc\.minecraft\versions\1.21.1-Forge_52.0.3", r"D:\mc\testmc\.minecraft\versions\1.21.1-Forge_52.0.3")
+#     c = launch_game(b, gen)
+#     print(c)
