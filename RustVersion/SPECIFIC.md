@@ -23,14 +23,22 @@ pub const LAUNCHER_NAME: &str = "<版本>"
 ## rust_lib::some_var
 
 ```
-全局变量类，如果需要使用则需要unsafe包住！
+全局变量类，如果需要获取则需要with_borrow包住！
+如果需要修改里面的值，并且值是可变的，可以使用with_borrow_mut。
+如果需要设置该变量请直接使用set函数。
 
-pub static mut DOWNLOAD_SOURCE: i32 = 1
+pub static DOWNLOAD_SOURCE: RefCell<i32> = RefCell::new(1)
 	下载源：目前仅支持两个数字，1：官方、2：BMCLAPI
 	该变量目前用于下载等部分！
-pub static mut MC_ROOT_JSON: String = String::new();
+pub static MC_ROOT_JSON: RefCell<Value> = RefCell::new(Value::Null)
 	mc的元数据（可以自己赋值也可以由类库帮忙赋值！）仅能赋值元数据值，如果赋上了别的值，后果自负！
 	该值可以在适当情况下自行赋值，也可以使用类库随时赋值哦！
+	当然了！该值填入一个serde_json::Value。
+pub static AUTHLIB_PATH: RefCell<String> = RefCell::new(String::new())
+	设置第三方登录的模块jar文件路径。在使用第三方登录的时候一定要设置该参数！
+	如果找不到该jar文件，在启动游戏的时候返回Err(-15)（新增）
+
+还有两个参数目前暂时是unused，将来会使用到的捏~
 ```
 
 ## rust_lib::main_method
@@ -69,6 +77,16 @@ pub fn extract_file_name(file: &str) -> String
 	返回一个文件的文件名。
 	填入【D:\aa.txt】时返回【aa.txt】。
 	如果填入的非路径，或者末尾带有“\”的路径，或者都没有出现过“\”的路径，则返回空。
+
+pub fn hex_decode(raw: &str) -> Option<Vec<u8>> 
+	将一个16进制字符串转换成u8数组。
+	例如【aabbcc】转成【[170, 187, 204]】
+	当字符串不符合【a-f0-9】并且是2的倍数时，返回None。
+
+pub fn hex_encode(raw: Vec<u8>) -> String
+	将u8数组转换成字符串。
+	例如【[170, 187, 204]】转成【aabbcc】
+	该函数不会抛出报错，仅需使用正常方式接收即可。
 
 pub fn get_file_bits(file: String) -> Option<bool>
 	返回文件的位数【为32位或64位】
@@ -347,3 +365,27 @@ impl AccountLogin
 		最终返回的AccountResult里，仅包含了新的access_token、以及client_token（如果你提供了的话。）
 ```
 
+## rust_lib::download_mod
+
+```
+以下函数均使用异步，望周知。
+以下五个函数均受到【rust_lib::some_var::DOWNLOAD_SOURCE】的影响，下载源为1时是官方下载源，为2时是BMCLAPI镜像。
+pub async fn get_mc_versions() -> Result<serde_json::Value, i32> 
+	获取MC原始metadata数据，并返回serde_json的Value值。
+	该值可以直接赋值给MC_ROOT_JSON
+
+pub async fn get_forge_versions(mcversion: &str) -> Result<serde_json::Value, i32>
+	该值可以通过给予一个MC的确切版本，准确获取到一个TLM格式的serde_json的Value值。
+	如果获取不到或者内容为空，则返回Err
+	该TLM标准格式，可以通过查看该库的README.md进行查看，当然你也可以直接运行一次查看。
+
+pub async fn get_fabric_version(mcversion: &str) -> Result<serde_json::Value, i32>
+	同上。但是是Fabric的。
+	installer键值改成profile，因为这个是直接获取原始JSON的。
+
+pub async fn get_quilt_version(mcversion: &str) -> Result<serde_json::Value, i32>
+	同上。但是是Quilt的。
+
+pub async fn get_neoforge_version(mcversion: &str) -> Result<serde_json::Value, i32>
+	同Forge，但是是NeoForge的。
+```

@@ -2,23 +2,24 @@
  * 欢迎来到Tank Launcher Module! 
  * 本模块使用MIT协议进行开源！各位可以随意使用本模块的函数。
  * 本模块暂未发布至crates.io，因为我不想发！！
+ * 本模块中，很多需要用到网络请求的部分，未使用async包围。因为作者的TLM不是GUI程序。各位想加就加上async/await把！
  */
 /**
  * 部分常量值，在程序的任意位置均可直接调用。
  */
 pub mod some_const {
-    pub const LAUNCHER_NANE: &str = "TLM";  //在使用此库时，请自觉将此值改成你的【<启动器名称>】。在使用默认方式启动时，会自动将【${launcher_name}】替换成该值。
-    pub const LAUNCHER_VERSION: &str = "0.0.1-Alpha-7"; //在使用此库时，请自觉将此值改成你的【<启动器版本>】【可以加上Alpha、Beta、Pre三个值，因为在启动替换（${launcher_version}）时用到这个值。不过各位可以自行去函数put_arguments进行修改以适配该值。】
-    pub const USER_AGENT: &str = "TLM/0.0.1.7";  //在使用此库时，请自觉将此值改成你的【<启动器名称>/<启动器版本>】。
+    pub const LAUNCHER_NANE: &str = "MMCLL";  //在使用此库时，请自觉将此值改成你的【<启动器名称>】。在使用默认方式启动时，会自动将【${launcher_name}】替换成该值。
+    pub const LAUNCHER_VERSION: &str = "0.0.1-Alpha-11"; //在使用此库时，请自觉将此值改成你的【<启动器版本>】【可以加上Alpha、Beta、Pre三个值，因为在启动替换（${launcher_version}）时用到这个值。不过各位可以自行去函数put_arguments进行修改以适配该值。】
+    pub const USER_AGENT: &str = "MMCLL/0.0.1.11";  //在使用此库时，请自觉将此值改成你的【<启动器名称>/<启动器版本>】。
     pub const OK: i32 = 0;  //完成
     pub const ERR_UNKNOWN_ERROR: i32 = 1;  //未知错误
     //以下是启动游戏时的部分错误代码
     pub const ERR_LAUNCH_ACCOUNT_USERNAME: i32 = -1;  //账号名称格式错误
     pub const ERR_LAUNCH_ACCOUNT_USERUUID: i32 = -2;  //账号UUID格式错误
-    pub const ERR_LAUNCH_ACCOUNT_ACCESS_TOKEN: i32 = -3;  //账号AccessToken错误
-    pub const ERR_LAUNCH_ACCOUNT_NO_LEGAL: i32 = -4;  //账号未购买正版
-    pub const ERR_LAUNCH_ACCOUNT_THIRDPARTY_ACCESS_TOKEN_OR_URL: i32 = -5;  //账号第三方的AccessToken或者URL错误。
-    pub const ERR_LAUNCH_ACCOUNT_THIRDPARTY_BASE: i32 = -6;  //账号base64编码错误
+    pub const ERR_LAUNCH_ACCOUNT_ACCESS_TOKEN: i32 = -3;  //账号AccessToken错误（仅在登录微软正版时触发）
+    pub const ERR_LAUNCH_ACCOUNT_NO_LEGAL: i32 = -4;  //账号未购买正版（仅在登录微软正版时触发）
+    pub const ERR_LAUNCH_ACCOUNT_THIRDPARTY_ACCESS_TOKEN_OR_URL: i32 = -5;  //账号第三方的AccessToken或者URL错误。（仅在登录第三方时触发）
+    pub const ERR_LAUNCH_ACCOUNT_THIRDPARTY_BASE: i32 = -6;  //账号base64编码错误（仅在登录第三方时触发）
     pub const ERR_LAUNCH_JAVA_PATH: i32 = -7;  //Java路径错误（文件未找到）
     pub const ERR_LAUNCH_ROOT_PATH: i32 = -8;  //游戏根路径错误（文件夹未找到）
     pub const ERR_LAUNCH_VERSION_PATH: i32 = -9;  //游戏版本路径错误（文件夹未找到）
@@ -28,6 +29,7 @@ pub mod some_const {
     pub const ERR_LAUNCH_MIN_MEMORY: i32 = -13;  //最小内存错误（小于256或大于1024）
     pub const ERR_LAUNCH_MAX_MEMORY: i32 = -13;  //最大内存错误（小于1024或大于系统内存）
     pub const ERR_LAUNCH_CUSTOM_INFO: i32 = -14;  //自定义信息错误（未填写，必须要个默认值！）
+    pub const ERR_LAUNCH_ACCOUNT_AUTHLIB: i32 = -15;  //Authlib-Injector.jar未找到。（仅在登录第三方时触发）
     //以下是账号登录时的部分错误代码
     pub const ERR_LOGIN_CANNOT_GET_USERCODE: i32 = -1;  //未成功获取用户代码
     pub const ERR_LOGIN_DEVICE_CODE_INVALID: i32 = -2;  //微软登录，暂未完成登录。
@@ -47,30 +49,322 @@ pub mod some_const {
     pub const ERR_LOGIN_USERNAME_OR_PASSWORD: i32 = -15;  //第三方登录：账号密码错误。
     pub const ERR_LOGIN_INVALID_ACCESS_TOKEN: i32 = -16;  //第三方登录：无效的令牌。
     pub const ERR_LOGIN_ACCESS_TOKEN_EXPIRE: i32 = -17;  //第三方登录，用于刷新的登录密钥已过期很久。
+    //以下是下载部分
+    pub const ERR_DOWNLOAD_CANNOT_GET_METADATA: i32 = -1;  //获取元数据失败（适用于任何情况）
+    pub const ERR_DOWNLOAD_FORGE_VERSION_NOT_FOUNT: i32 = -2;  //forge版本未找到
+    pub const ERR_DOWNLOAD_FABRIC_VERSION_NOT_FOUNT: i32 = -3;  //forge版本未找到
+    pub const ERR_DOWNLOAD_QUILT_VERSION_NOT_FOUNT: i32 = -4;  //forge版本未找到
+    pub const ERR_DOWNLOAD_NEOFORGE_VERSION_NOT_FOUNT: i32 = -5;  //forge版本未找到
 }
 /**
- * 部分全局变量值。在需要的时候可以使用unsafe包裹住该变量以便使用，赋值和引用均可。但是你需要为你赋过的值负责！。
+ * 部分全局变量值。在需要的时候可以使用with_borrow包裹住该变量以便使用，赋值和引用均可。但是你需要为你赋过的值负责！。
  */
 pub mod some_var {
-    pub static mut DOWNLOAD_SOURCE: i32 = 1;  //下载源：目前仅支持两个数字，1：官方、2：BMCLAPI
-    pub static mut MC_ROOT_JSON: String = String::new();  //mc的元数据（可以自己赋值也可以由类库帮忙赋值！）仅能赋值元数据值，如果赋上了别的值，后果自负！
-    pub static mut AUTHLIB_PATH: String = String::new();  //设置第三方登录的模块jar文件。在使用第三方登录的时候一定要设置该参数！
-    #[allow(unused)]
-    pub static mut BIGGEST_THREAD: i32 = 64;  //最大线程，但是在Rust里指的是最大并发量（必须要提前赋值，否则将按照默认64处理。）
-    // pub static mut AUTHLIB_URL: String = String::new();
+    thread_local! {
+        pub static DOWNLOAD_SOURCE: std::cell::RefCell<i32> = std::cell::RefCell::new(1);  //下载源：目前仅支持两个数字，1：官方、2：BMCLAPI
+        pub static MC_ROOT_JSON: std::cell::RefCell<serde_json::Value> = std::cell::RefCell::new(serde_json::Value::Null);  //mc的元数据（可以自己赋值也可以由类库帮忙赋值！）仅能赋值元数据值，如果赋上了别的值，后果自负！
+        pub static AUTHLIB_PATH: std::cell::RefCell<String> = std::cell::RefCell::new(String::new());  //设置第三方登录的模块jar文件。在使用第三方登录的时候一定要设置该参数！
+        pub static BIGGEST_THREAD: std::cell::RefCell<i32> = std::cell::RefCell::new(64);  //最大线程，但是在Rust里指的是最大并发量（必须要提前赋值，否则将按照默认64处理。）
+        #[allow(unused)]
+        pub static AUTHLIB_URL: std::cell::RefCell<String> = std::cell::RefCell::new(String::new());  
+    }
 }
+/**
+ * 请在使用该类的时候，提前将BIGGEST_THREAD给赋值上。否则将会按照默认64进行。
+ */
 pub mod download_mod {
+    /** 
+     * 获取MC版本（可以使用该值赋值给MC_ROOT_JSON）
+     */
+    pub async fn get_mc_versions() -> Result<serde_json::Value, i32> {
+        use super::some_const::*;
+        let v = match super::some_var::DOWNLOAD_SOURCE.with_borrow(|e| e.clone()) {
+            2 => { "https://bmclapi2.bangbang93.com/mc/game/version_manifest.json" }
+            _ => { "https://piston-meta.mojang.com/mc/game/version_manifest.json" }
+        };
+        let md = String::from_utf8(super::account_mod::UrlMethod::new(v).get_default_async().await.ok_or(ERR_DOWNLOAD_CANNOT_GET_METADATA)?).map_err(|_| 1)?;
+        let sj = serde_json::from_str::<serde_json::Value>(md.as_str()).map_err(|_| 2)?;
+        Ok(sj.clone())
+    }
+    /** 
+     * 获取Forge版本的JSON（无论BMCLAPI还是Official，最终都会转成一种标准TLM格式：）
+     * 具体格式请见：README.md
+     */
+    pub async fn get_forge_versions(mcversion: &str) -> Result<serde_json::Value, i32> {
+        use super::some_const::*;
+        if super::some_var::DOWNLOAD_SOURCE.with_borrow(|e| e.clone()) == 2 {
+            let md = String::from_utf8(super::account_mod::UrlMethod::new(format!("https://bmclapi2.bangbang93.com/forge/minecraft/{}", mcversion).as_str()).get_default_async().await.ok_or(ERR_DOWNLOAD_CANNOT_GET_METADATA)?).map_err(|_| 3)?;
+            let sj = serde_json::from_str::<serde_json::Value>(md.as_str()).map_err(|_| ERR_DOWNLOAD_FORGE_VERSION_NOT_FOUNT)?;
+            let sj = sj.as_array().ok_or(ERR_DOWNLOAD_FORGE_VERSION_NOT_FOUNT)?;
+            let mut res = serde_json::from_str::<serde_json::Value>("{\"forge\":[]}").unwrap();
+            let mut obj = serde_json::from_str::<serde_json::Value>("{}").unwrap();
+            let obj = obj.as_object_mut().unwrap();
+            let rv = res.get_mut("forge").unwrap().as_array_mut().unwrap();
+            for i in sj.into_iter() {
+                let mcv = i["mcversion"].as_str().ok_or(4)?;
+                let v = i["version"].as_str().ok_or(5)?;
+                let bch = if let Some(e) = i.get("branch") { if !e.is_null() { e.as_str().ok_or(6)? } else { "" } } else { "" };
+                let raw = if bch.is_empty() { format!("{}-{}", mcv, v) } else { format!("{}-{}-{}", mcv, v, bch) };
+                let mut ins = false;
+                for j in i["files"].as_array().ok_or(7)?.into_iter() {
+                    let cg = j["category"].as_str().ok_or(8)?;
+                    let fm = j["format"].as_str().ok_or(9)?;
+                    if cg.eq("installer") && fm.eq("jar") {
+                        ins = true;
+                        break;
+                    }
+                }
+                obj.insert(String::from("mcversion"), serde_json::Value::String(mcv.to_string()));
+                obj.insert(String::from("version"), serde_json::Value::String(v.to_string()));
+                obj.insert(String::from("rawversion"), serde_json::Value::String(raw.clone()));
+                if ins {
+                    if bch.is_empty() {
+                        let ins = format!("https://bmclapi2.bangbang93.com/forge/download?mcversion={}&version={}&category=installer&format=jar", mcv, v);
+                        obj.insert(String::from("installer"), serde_json::Value::String(ins.clone()));
+                    } else {
+                        let ins = format!("https://bmclapi2.bangbang93.com/forge/download?mcversion={}&version={}&branch={}&category=installer&format=jar", mcv, v, bch);
+                        obj.insert(String::from("installer"), serde_json::Value::String(ins.clone()));
+                    }
+                } else {
+                    obj.insert(String::from("installer"), serde_json::Value::Null);
+                }
+                rv.push(serde_json::Value::Object(obj.clone()));
+                obj.clear();
+            }
+            if rv.len() < 1 {
+                return Err(ERR_DOWNLOAD_FORGE_VERSION_NOT_FOUNT);
+            }
+            Ok(res.clone())
+        } else {
+            let md = String::from_utf8(super::account_mod::UrlMethod::new("https://maven.minecraftforge.net/net/minecraftforge/forge/maven-metadata.xml").get_default_async().await.ok_or(ERR_DOWNLOAD_CANNOT_GET_METADATA)?).map_err(|_| 1)?;
+            let mut sj = quick_xml::Reader::from_str(md.as_str());
+            sj.config_mut().trim_text(true);
+            let mut res = serde_json::from_str::<serde_json::Value>("{\"forge\":[]}").unwrap();
+            let mut obj = serde_json::from_str::<serde_json::Value>("{}").unwrap();
+            let obj = obj.as_object_mut().unwrap();
+            let rv = res.get_mut("forge").unwrap().as_array_mut().unwrap();
+            let mut versioning = false;
+            let mut versions = false;
+            let mut version = false;
+            let mut buf: Vec<u8> = Vec::new();
+            loop {
+                match sj.read_event_into(&mut buf) {
+                    Ok(quick_xml::events::Event::Start(e)) => {
+                        match e.name().as_ref() {
+                            b"versioning" => versioning = true,
+                            b"versions" if versioning => versions = true,
+                            b"version" if versions => version = true,
+                            _ => ()
+                        }
+                    }
+                    Ok(quick_xml::events::Event::End(e)) => {
+                        match e.name().as_ref() {
+                            b"versioning" => versioning = false,
+                            b"versions" => versions = false,
+                            b"version" => version = false,
+                            _ => ()
+                        }
+                    }
+                    Ok(quick_xml::events::Event::Text(e)) => {
+                        if versioning && versions && version {
+                            let text = e.unescape().map_err(|_| 10)?.into_owned();
+                            let sp = text.split('-').collect::<Vec<&str>>();
+                            if sp.len() == 2 || sp.len() == 3 {
+                                if sp[0].eq(mcversion) {
+                                    obj.insert(String::from("mcversion"), serde_json::Value::String(sp[0].to_string()));
+                                    obj.insert(String::from("version"), serde_json::Value::String(sp[1].to_string()));
+                                    obj.insert(String::from("rawversion"), serde_json::Value::String(text.clone()));
+                                    let ins = format!("https://maven.minecraftforge.net/net/minecraftforge/forge/{}/forge-{}-installer.jar", text, text);
+                                    obj.insert(String::from("installer"), serde_json::Value::String(ins.clone()));
+                                    rv.push(serde_json::Value::Object(obj.clone()));
+                                    obj.clear();
+                                }
+                            }
+                        }
+                    }
+                    Ok(quick_xml::events::Event::Eof) => break,
+                    _ => ()
+                }
+            }
+            if rv.len() < 1 {
+                return Err(ERR_DOWNLOAD_FORGE_VERSION_NOT_FOUNT);
+            }
+            Ok(res.clone())
+        }
+    }
+    /**
+     * 获取fabric版本的TLM实现版JSON
+     */
+    pub async fn get_fabric_version(mcversion: &str) -> Result<serde_json::Value, i32> {
+        use super::some_const::*;
+        let meta = match super::some_var::DOWNLOAD_SOURCE.with_borrow(|e| e.clone()) {
+            2 => { format!("https://bmclapi2.bangbang93.com/fabric-meta/v2/versions/loader/{}", mcversion) }
+            _ => { format!("https://meta.fabricmc.net/v2/versions/loader/{}", mcversion) }
+        };
+        let url = super::account_mod::UrlMethod::new(meta.as_str());
+        let text = String::from_utf8(url.get_default_async().await.ok_or(ERR_DOWNLOAD_CANNOT_GET_METADATA)?).map_err(|_| 12)?;
+        let ser = serde_json::from_str::<serde_json::Value>(text.as_str()).map_err(|_| ERR_DOWNLOAD_FABRIC_VERSION_NOT_FOUNT)?;
+        let mut res = serde_json::from_str::<serde_json::Value>("{\"fabric\":[]}").unwrap();
+        let mut obj = serde_json::from_str::<serde_json::Value>("{}").unwrap();
+        let obj = obj.as_object_mut().unwrap();
+        let rv = res.get_mut("fabric").unwrap().as_array_mut().unwrap();
+        if !ser.is_array() {
+            Err(ERR_DOWNLOAD_QUILT_VERSION_NOT_FOUNT)
+        }else{
+            let ser = ser.as_array().unwrap();
+            for i in ser.into_iter() {
+                let c = i["loader"]["version"].as_str();
+                if let None = c { continue; }
+                let c = c.unwrap();
+                obj.insert(String::from("rawversion"), serde_json::Value::String(String::from(c)));
+                obj.insert(String::from("mcversion"), serde_json::Value::String(String::from(mcversion)));
+                obj.insert(String::from("version"), serde_json::Value::String(String::from(c)));
+                obj.insert(String::from("profile"), serde_json::Value::String(format!("https://meta.fabricmc.net/v2/versions/loader/{}/{}/profile/json", mcversion, c)));
+                rv.push(serde_json::Value::Object(obj.clone()));
+                obj.clear();
+            }
+            if rv.len() < 1 {
+                return Err(ERR_DOWNLOAD_FORGE_VERSION_NOT_FOUNT);
+            }
+            Ok(res.clone())
+        }
+    }
+    /**
+     * 获取quilt版本的TLM实现版JSON
+     */
+    pub async fn get_quilt_version(mcversion: &str) -> Result<serde_json::Value, i32> {
+        use super::some_const::*;
+        let meta = match super::some_var::DOWNLOAD_SOURCE.with_borrow(|e| e.clone()) {
+            2 => { format!("https://bmclapi2.bangbang93.com/quilt-meta/v3/versions/loader/{}", mcversion) }
+            _ => { format!("https://meta.quiltmc.org/v3/versions/loader/{}", mcversion) }
+        };
+        let url = super::account_mod::UrlMethod::new(meta.as_str());
+        let text = String::from_utf8(url.get_default_async().await.ok_or(ERR_DOWNLOAD_CANNOT_GET_METADATA)?).map_err(|_| 13)?;
+        let ser = serde_json::from_str::<serde_json::Value>(text.as_str()).map_err(|_| ERR_DOWNLOAD_QUILT_VERSION_NOT_FOUNT)?;
+        let mut res = serde_json::from_str::<serde_json::Value>("{\"quilt\":[]}").unwrap();
+        let mut obj = serde_json::from_str::<serde_json::Value>("{}").unwrap();
+        let obj = obj.as_object_mut().unwrap();
+        let rv = res.get_mut("quilt").unwrap().as_array_mut().unwrap();
+        if ser.is_object() {
+            Err(ERR_DOWNLOAD_QUILT_VERSION_NOT_FOUNT)
+        }else{
+            let ser = ser.as_array().unwrap();
+            for i in ser.into_iter() {
+                let c = i["loader"]["version"].as_str();
+                if let None = c { continue; }
+                let c = c.unwrap();
+                obj.insert(String::from("rawversion"), serde_json::Value::String(String::from(c)));
+                obj.insert(String::from("mcversion"), serde_json::Value::String(String::from(mcversion)));
+                obj.insert(String::from("version"), serde_json::Value::String(String::from(c)));
+                obj.insert(String::from("profile"), serde_json::Value::String(format!("https://meta.quiltmc.org/v3/versions/loader/{}/{}/profile/json", mcversion, c)));
+                rv.push(serde_json::Value::Object(obj.clone()));
+                obj.clear();
+            }
+            if rv.len() < 1 {
+                return Err(ERR_DOWNLOAD_FORGE_VERSION_NOT_FOUNT);
+            }
+            Ok(res.clone())
+        }
+    }
+    /**
+     * 获取neoforge版本的TLM实现版JSON
+     */
+    pub async fn get_neoforge_version(mcversion: &str) -> Result<serde_json::Value, i32> {
+        use super::some_const::*;
+        if mcversion.eq("1.20.1") {
+            let meta = match super::some_var::DOWNLOAD_SOURCE.with_borrow(|e| e.clone()) {
+                2 => { "https://bmclapi2.bangbang93.com/neoforge/meta/api/maven/details/releases/net/neoforged/forge".to_string() }
+                _ => { "https://maven.neoforged.net/api/maven/details/releases/net/neoforged/forge".to_string() }
+            };
+            let url = super::account_mod::UrlMethod::new(meta.as_str());
+            let text = String::from_utf8(url.get_default_async().await.ok_or(ERR_DOWNLOAD_CANNOT_GET_METADATA)?).map_err(|_| 14)?;
+            let ser = serde_json::from_str::<serde_json::Value>(text.as_str()).map_err(|_| ERR_DOWNLOAD_NEOFORGE_VERSION_NOT_FOUNT)?;
+            let mut res = serde_json::from_str::<serde_json::Value>("{\"neoforge\":[]}").unwrap();
+            let mut obj = serde_json::from_str::<serde_json::Value>("{}").unwrap();
+            let obj = obj.as_object_mut().unwrap();
+            let rv = res.get_mut("neoforge").unwrap().as_array_mut().unwrap();
+            let ser = ser["files"].as_array().ok_or(15)?;
+            for i in ser.into_iter() {
+                let name = i["name"].as_str().ok_or(16)?;
+                let spn = name.split('-').collect::<Vec<&str>>();
+                if spn.len() == 2 {
+                    let spl = spn[0].split(".").collect::<Vec<&str>>();
+                    if spl.len() != 3 { continue; }
+                    let mv = spn[0].to_string();
+                    let v = spn[1].to_string();
+                    let n = name.to_string();
+                    obj.insert(String::from("rawversion"), serde_json::Value::String(n.clone()));
+                    obj.insert(String::from("mcversion"), serde_json::Value::String(mv.clone()));
+                    obj.insert(String::from("version"), serde_json::Value::String(v.clone()));
+                    obj.insert(String::from("installer"), serde_json::Value::String(format!("{}", if super::some_var::DOWNLOAD_SOURCE.with_borrow(|e| e.clone()) == 2 {
+                        format!("https://bmclapi2.bangbang93.com/neoforge/version/{}/download/installer.jar", n.clone())
+                    } else {
+                        format!("https://maven.neoforged.net/releases/net/neoforged/forge/{}/forge-{}-installer.jar", n.clone(), n.clone())
+                    })));
+                    rv.push(serde_json::Value::Object(obj.clone()));
+                    obj.clear();
+                }
+            }
+            if rv.len() < 1 {
+                return Err(ERR_DOWNLOAD_FORGE_VERSION_NOT_FOUNT);
+            }
+            return Ok(res.clone());
+        } else {
+            let meta = match super::some_var::DOWNLOAD_SOURCE.with_borrow(|e| e.clone()) {
+                2 => { "https://bmclapi2.bangbang93.com/neoforge/meta/api/maven/details/releases/net/neoforged/neoforge".to_string() }
+                _ => { "https://maven.neoforged.net/api/maven/details/releases/net/neoforged/neoforge".to_string() }
+            };
+            let url = super::account_mod::UrlMethod::new(meta.as_str());
+            let text = String::from_utf8(url.get_default_async().await.ok_or(ERR_DOWNLOAD_CANNOT_GET_METADATA)?).map_err(|_| 14)?;
+            let ser = serde_json::from_str::<serde_json::Value>(text.as_str()).map_err(|_| ERR_DOWNLOAD_NEOFORGE_VERSION_NOT_FOUNT)?;
+            let mut res = serde_json::from_str::<serde_json::Value>("{\"neoforge\":[]}").unwrap();
+            let mut obj = serde_json::from_str::<serde_json::Value>("{}").unwrap();
+            let obj = obj.as_object_mut().unwrap();
+            let rv = res.get_mut("neoforge").unwrap().as_array_mut().unwrap();
+            let ser = ser["files"].as_array().ok_or(15)?;
+            for i in ser.into_iter() {
+                let name = i["name"].as_str().ok_or(16)?;
+                let srn = name.split("-").collect::<Vec<&str>>();
+                let sname = srn[0];
+                let spm = mcversion.split(".").collect::<Vec<&str>>();
+                let rpm = if spm.len() == 3 { format!("{}.{}", spm[1], spm[2]) } else if spm.len() == 2 { format!("{}.0", spm[1]) } else { continue; };
+                let spn = sname.split(".").collect::<Vec<&str>>();
+                let rpn = if spn.len() >= 2 { format!("{}.{}", spn[0], spn[1]) } else { continue; };
+                if rpm.eq(rpn.as_str()) {
+                    let n = name.to_string();
+                    let mv = mcversion.to_string();
+                    let v = sname.to_string();
+                    obj.insert(String::from("rawversion"), serde_json::Value::String(n.clone()));
+                    obj.insert(String::from("mcversion"), serde_json::Value::String(mv.clone()));
+                    obj.insert(String::from("version"), serde_json::Value::String(v.clone()));
+                    obj.insert(String::from("installer"), serde_json::Value::String(format!("{}", if super::some_var::DOWNLOAD_SOURCE.with_borrow(|e| e.clone()) == 2 {
+                        format!("https://bmclapi2.bangbang93.com/neoforge/version/{}/download/installer.jar", n.clone())
+                    } else {
+                        format!("https://maven.neoforged.net/releases/net/neoforged/forge/{}/forge-{}-installer.jar", n.clone(), n.clone())
+                    })));
+                    rv.push(serde_json::Value::Object(obj.clone()));
+                    obj.clear();
+                }
+            }
+            if rv.len() < 1 {
+                return Err(ERR_DOWNLOAD_FORGE_VERSION_NOT_FOUNT);
+            }
+            return Ok(res.clone());
+        }
+    }
     #[allow(unused)]
     pub struct DownloadMethod {
         key: String,
     }
+    /**
+     * 会自动匹配下载源，只需要提前将DOWNLOAD_SOURCE赋值完毕即可。
+     * 1：官方源、2：BMCLAPI
+     * 目前有且仅有上述两个源
+     */
     impl DownloadMethod {
         /**
-         * 新建一个下载实现。key根据需求填入。
-         * Java的话，填入alpha、beta、gamma
-         * MC原版的话，填入版本号
-         * 如果要装模组加载器，则在调用函数的时候使用版本。
-         * 如果是下载自定义文件，填入url
+         * 新建一个下载实现。key根据需求填入
+         * 参见以下各种new实例
          */
         #[allow(unused)]
         pub fn new(key: &str) -> Self {
@@ -91,11 +385,25 @@ pub mod download_mod {
             Ok(())
         }
         #[allow(unused)]
+        /**
+         * 在下载自定义函数的时候，仅需使用tokio运行一次该函数即可。
+         * 因为该库会自动调用最大线程进行切割文件并进行下载。
+         * 当然，如果你想自己实现多线程下载的话，也可以调用UrlMethod的get_default_async自主实现多并发下载。、
+         * 除了Rust语言有async并发以外，Java、Python、Go等语言都有并发模型，因此均采用多并发而不是多线程进行下载。
+         * 除了某些语言可能没有多线程，例如Delphi/Object Pascal仅有的Task、Thread等。
+         */
         pub async fn download_custom() -> Result<(), i32> {
             Ok(())
         }
+        #[allow(unused)]
+        pub async fn get_mc_metadata() -> Option<String> {
+            None
+        }
     }
 }
+/**
+ * 登录账号的时需要用到的部分函数。需要初始化！
+ */
 pub mod account_mod {
     pub struct UrlMethod {
         url: String,
@@ -254,22 +562,22 @@ pub mod account_mod {
            base: String::new()
         } }
         pub fn get_name(&self) -> String {
-            return self.name.clone();
+            self.name.clone()
         }
         pub fn get_uuid(&self) -> String {
-            return self.uuid.clone();
+            self.uuid.clone()
         }
         pub fn get_access_token(&self) -> String {
-            return self.access_token.clone();
+            self.access_token.clone()
         }
         pub fn get_refresh_token(&self) -> String {
-            return self.refresh_token.clone();
+            self.refresh_token.clone()
         }
         pub fn get_client_token(&self) -> String {
-            return self.client_token.clone();
+            self.client_token.clone()
         }
         pub fn get_base(&self) -> String {
-            return self.base.clone();
+            self.base.clone()
         }
         fn set_name(&mut self, name: &str) {
             self.name = name.to_string();
@@ -326,8 +634,9 @@ pub mod account_mod {
             let client = UrlMethod::new(URL);
             let res = client.post_async(k1.as_str(), true)
                 .await
-                .map_or(Err(super::some_const::ERR_LOGIN_CANNOT_GET_USERCODE), |s| Ok(s.clone()))?;
-            let login = serde_json::from_str::<serde_json::Value>(res.as_str()).map_err(|_| super::some_const::ERR_LOGIN_CANNOT_GET_USERCODE )?;
+                .ok_or(super::some_const::ERR_LOGIN_CANNOT_GET_USERCODE)?;
+            let login = serde_json::from_str::<serde_json::Value>(res.as_str())
+                .map_err(|_| super::some_const::ERR_LOGIN_CANNOT_GET_USERCODE )?;
             let user_code = login["user_code"]
                 .as_str()
                 .ok_or(super::some_const::ERR_LOGIN_CANNOT_GET_USERCODE )?;
@@ -368,16 +677,16 @@ pub mod account_mod {
                 let ww3 = j3["XErr"]
                     .as_i64()
                     .ok_or(25)?;
-                if ww3 == 2148916233 {
-                    return Err(ERR_LOGIN_XSTS_NO_XBOX);
+                return if ww3 == 2148916233 {
+                    Err(ERR_LOGIN_XSTS_NO_XBOX)
                 } else if ww3 == 2148916235 {
-                    return Err(ERR_LOGIN_XSTS_ILLEGAL);
+                    Err(ERR_LOGIN_XSTS_ILLEGAL)
                 } else if ww3 == 2148916236 || ww3 == 2148916237 {
-                    return Err(ERR_LOGIN_XSTS_NO_ADULT);
+                    Err(ERR_LOGIN_XSTS_NO_ADULT)
                 } else if ww3 == 2148916238 {
-                    return Err(ERR_LOGIN_XSTS_UNDER_18);
+                    Err(ERR_LOGIN_XSTS_UNDER_18)
                 } else {
-                    return Err(26);
+                    Err(26)
                 }
             }
             let w3 = w3.ok_or(27)?;
@@ -401,7 +710,7 @@ pub mod account_mod {
             result_account.set_uuid(uuid);
             result_account.set_access_token(w4);
             result_account.set_refresh_token(refresh_token);
-            return Ok(result_account);
+            Ok(result_account)
         }
         /**
          * 公开函数，用于登录微软账号。需要提供一个device_code。
@@ -413,7 +722,7 @@ pub mod account_mod {
             let client = UrlMethod::new(MS_LIVE);
             let g1 = client.post_async(k1.as_str(), true)
                 .await
-                .map_or(Err(2), |s| Ok(s.clone()))?;
+                .ok_or(2)?;
             let j1 = serde_json::from_str::<serde_json::Value>(g1.as_str()).map_err(|_| 3)?;
             let w1 = j1["access_token"].as_str();
             if let Some(e) = w1 {
@@ -443,7 +752,7 @@ pub mod account_mod {
             let client = UrlMethod::new(MS_LIVE);
             let g1 = client.post_async(k1.as_str(), true)
                 .await
-                .map_or(Err(11), |s| Ok(s.clone()))?;
+                .ok_or(11)?;
             let j1 = serde_json::from_str::<serde_json::Value>(g1.as_str()).map_err(|_| 12)?;
             let w1 = j1["access_token"].as_str();
             if let Some(e) = w1 {
@@ -469,7 +778,7 @@ pub mod account_mod {
             use base64::Engine;
             let base = UrlMethod::new(self.key.as_str());
             let base = base.get_default_async().await.ok_or(ERR_LOGIN_CANNOT_GET_METADATA)?;
-            let base = String::from_utf8(base).map_or(Err(ERR_LOGIN_CANNOT_GET_METADATA), |e| Ok(e.clone()))?;
+            let base = String::from_utf8(base).map_err(|_| ERR_LOGIN_CANNOT_GET_METADATA)?;
             if base.is_empty() { return Err(ERR_LOGIN_CANNOT_GET_METADATA) }
             let base = base64::engine::general_purpose::STANDARD.encode(base.replace("\\/", "/"));
             let res = format!("{}/authserver/authenticate", self.key.clone());
@@ -483,14 +792,14 @@ pub mod account_mod {
             let t1 = w1.post_async(k1.as_str(), false)
                     .await
                     .ok_or(ERR_LOGIN_USERNAME_OR_PASSWORD)?;
-            let j1 = serde_json::from_str::<serde_json::Value>(t1.as_str()).map_or(Err(46), |e| Ok(e.clone()))?;
+            let j1 = serde_json::from_str::<serde_json::Value>(t1.as_str()).map_err(|_| 46)?;
             let a1 = j1["accessToken"].as_str();
             if let None = a1 {
                 let err = j1["errorMessage"].as_str().ok_or(47)?;
-                if err.contains("invalid") && err.contains("username") && err.contains("password") {
-                    return Err(ERR_LOGIN_USERNAME_OR_PASSWORD);
-                }else {
-                    return Err(48);
+                return if err.contains("invalid") && err.contains("username") && err.contains("password") {
+                    Err(ERR_LOGIN_USERNAME_OR_PASSWORD)
+                } else {
+                    Err(48)
                 }
             }
             let a1 = a1.ok_or(49)?;
@@ -523,14 +832,14 @@ pub mod account_mod {
             }
             let t1 = UrlMethod::new(res.as_str());
             let t1 = t1.post_async(k1.as_str(), false).await.ok_or(ERR_LOGIN_ACCESS_TOKEN_EXPIRE)?;
-            let j1 = serde_json::from_str::<serde_json::Value>(t1.as_str()).map_or(Err(54), |e| Ok(e.clone()))?;
+            let j1 = serde_json::from_str::<serde_json::Value>(t1.as_str()).map_err(|_| 54)?;
             let ac = j1["accessToken"].as_str();
             if let None = ac {
                 let err = j1["errorMessage"].as_str().ok_or(55)?;
-                if err.contains("invalid") && err.contains("token") {
-                    return Err(ERR_LOGIN_INVALID_ACCESS_TOKEN);
-                }else{
-                    return Err(56);
+                return if err.contains("invalid") && err.contains("token") {
+                    Err(ERR_LOGIN_INVALID_ACCESS_TOKEN)
+                } else {
+                    Err(56)
                 }
             }
             let ac = ac.ok_or(57)?;
@@ -545,12 +854,23 @@ pub mod account_mod {
  * 许多在启动时可能需要用到的静态函数。（无需初始化，仅需直接调用。）
  */
 pub mod main_mod {
+    use std::io::Read;
+
     /**
      * 从一个path获取外部文件。
+     * 此处使用了encoding转码，以防止有某些大聪明玩家使用GBK方式写文件
      */
     pub fn get_file(path: &str) -> Option<String> {
         let p = std::path::Path::new(path);
-        std::fs::read_to_string(p).ok()
+        let mut ss = std::fs::File::open(p).ok()?;
+        let mut buf = Vec::new();
+        ss.read_to_end(&mut buf).ok()?;
+        if let Ok(e) = String::from_utf8(buf.clone()) {
+            Some(e)
+        }else{
+            let (cow, _, h) = encoding_rs::GBK.decode(&buf);
+            if h { None }else{ Some((&cow).to_string()) }
+        }
     }
     /**
      * 将内容写出到文件
@@ -571,10 +891,10 @@ pub mod main_mod {
             Err(_) => return false,
         };
         use std::io::Write;
-        return match f.write_all(content.as_bytes()) {
+        match f.write_all(content.as_bytes()) {
             Ok(_) => true,
             Err(_) => false,
-        };
+        }
     }
     /**
      * 删除文件
@@ -582,7 +902,7 @@ pub mod main_mod {
     pub fn delete_file(path: &str) -> bool {
         let p = std::path::Path::new(path);
         if !p.exists() || p.exists() && p.is_dir() { return false; }
-        return match std::fs::remove_file(p) {
+        match std::fs::remove_file(p) {
             Ok(_) => true,
             Err(_) => false,
         }
@@ -605,6 +925,39 @@ pub mod main_mod {
         Some(hash)
     }
     /**
+     * 将16进制字符串转换成Vec<u8>形式
+     * 例如【aabbcc】转成【[170, 187, 204]】
+     */
+    pub fn hex_decode(raw: &str) -> Option<Vec<u8>> {
+        let mut res: Vec<u8> = Vec::new();
+        if raw.len() % 2 != 0 {
+            return None;
+        }
+        let reg = regex::Regex::new("^(?:[a-f0-9]{2})+$").unwrap();
+        if !reg.is_match(raw) {
+            return None;
+        }
+        let chars = raw.chars().collect::<Vec<char>>();
+        let mut i = 0;
+        while i < chars.len() {
+            let r = u32::from_str_radix(format!("{}{}", chars[i], chars[i + 1]).as_str(), 16).unwrap();
+            res.push(r as u8);
+            i += 2;
+        }
+        Some(res.clone())
+    }
+    /**
+     * 将16进制数组转成String形式
+     * 例如【[170, 187, 204]】转成【aabbcc】
+     */
+    pub fn hex_encode(raw: Vec<u8>) -> String {
+        let mut res = String::new();
+        for i in raw.into_iter() {
+            res.push_str(format!("{:x}", i).as_str());
+        }
+        res.clone()
+    }
+    /**
      * 该函数目前仅适用于在离线登录时根据用户名生成一个唯一的UUID。
      */
     pub fn generate_bukkit_uuid(name: &str) -> String{
@@ -612,11 +965,10 @@ pub mod main_mod {
         let mut md5 = crypto::md5::Md5::new();
         md5.input_str(format!("OfflinePlayer:{}", name).as_str());
         let res_str = md5.result_str();
-        let res_hex = hex::decode(res_str.as_str());
-        let mut res_hex = res_hex.unwrap();
+        let mut res_hex = hex_decode(res_str.as_str()).unwrap();
         res_hex[6] = (res_hex[6] & 0x0f) | 0x30;
         res_hex[8] = (res_hex[8] & 0x3f) | 0x80;
-        return hex::encode(res_hex);
+        hex_encode(res_hex)
     }
     /**
      * 该函数目前仅适用于在初始化第三方登录时对该皮肤站元数据进行base64编码。
@@ -733,8 +1085,7 @@ pub mod launcher_mod {
             for i in e.into_iter() {
                 let id = i["id"].as_str();
                 if let None = id { continue; }
-                let id = id.unwrap();
-                if id.eq("game") {
+                if id?.eq("game") {
                     let mcid = i["version"].as_str();
                     if let Some(f) = mcid {
                         if !f.is_empty(){
@@ -745,30 +1096,28 @@ pub mod launcher_mod {
             }
         }
         if let Some(w) = root["releaseTime"].as_str() {
-            unsafe {
-                let v = match super::some_var::DOWNLOAD_SOURCE {
-                    2 => { "https://bmclapi2.bangbang93.com/mc/game/version_manifest.json" }
-                    _ => { "https://piston-meta.mojang.com/mc/game/version_manifest.json" }
-                };
-                if super::some_var::MC_ROOT_JSON.is_empty() {
-                    let url = super::account_mod::UrlMethod::new(v);
-                    if let Some(e) = url.get_default() {
-                        let e = String::from_utf8(e);
-                        if let Ok(f) = e {
-                            super::some_var::MC_ROOT_JSON = f.clone();
-                        }
+            let v = match super::some_var::DOWNLOAD_SOURCE.with_borrow(|e| e.clone()) {
+                2 => { "https://bmclapi2.bangbang93.com/mc/game/version_manifest.json" }
+                _ => { "https://piston-meta.mojang.com/mc/game/version_manifest.json" }
+            };
+            if super::some_var::MC_ROOT_JSON.with_borrow(|e| e.clone()).is_null() {
+                let url = super::account_mod::UrlMethod::new(v);
+                if let Some(e) = url.get_default() {
+                    let e = String::from_utf8(e);
+                    if let Ok(f) = e {
+                        let s = serde_json::from_str::<serde_json::Value>(f.as_str()).ok()?;
+                        super::some_var::MC_ROOT_JSON.set(s.clone());
                     }
                 }
-                if !super::some_var::MC_ROOT_JSON.is_empty(){
-                    if let Ok(e) = serde_json::from_str::<serde_json::Value>(super::some_var::MC_ROOT_JSON.as_str()) {
-                        if let Some(g) = e["version"].as_array() {
-                            for h in g.into_iter() {
-                                if let Some(j) = h["releaseTime"].as_str() {
-                                    if j.eq(w) {
-                                        if let Some(d) = h["id"].as_str() {
-                                            return Some(d.to_string());
-                                        }
-                                    }
+            }
+            if !super::some_var::MC_ROOT_JSON.with_borrow(|e| e.clone()).is_null(){
+                let mrj = super::some_var::MC_ROOT_JSON.with_borrow(|e| e.clone());
+                if let Some(g) = mrj["version"].as_array() {
+                    for h in g.into_iter() {
+                        if let Some(j) = h["releaseTime"].as_str() {
+                            if j.eq(w) {
+                                if let Some(d) = h["id"].as_str() {
+                                    return Some(d.to_string());
                                 }
                             }
                         }
@@ -873,14 +1222,11 @@ pub mod launcher_mod {
                     let ps = pa.display().to_string();
                     let version_json = get_mc_real_path(ps.clone(), ".json");
                     if let None = version_json { continue; }
-                    let version_json = version_json.unwrap();
-                    let json_content = super::main_mod::get_file(version_json.as_str());
+                    let json_content = super::main_mod::get_file(version_json?.as_str());
                     if let None = json_content { continue; }
-                    let json_content = json_content.unwrap();
-                    let vanilla_version = get_mc_vanilla_version(json_content);
+                    let vanilla_version = get_mc_vanilla_version(json_content?);
                     if let None = vanilla_version { continue; }
-                    let vanilla_version = vanilla_version.unwrap();
-                    if vanilla_version.eq(e) { return Some(ps.clone()); }
+                    if vanilla_version?.eq(e) { return Some(ps.clone()); }
                 }
             }else{ return Some(version_path.clone()); }
         }
@@ -977,8 +1323,7 @@ pub mod launcher_mod {
                     return if suffix.eq(".json") {
                         let file_content = super::main_mod::get_file(ps.as_str());
                         if let None = file_content { continue; }
-                        let file_content = file_content.unwrap();
-                        let root = serde_json::from_str::<serde_json::Value>(file_content.as_str());
+                        let root = serde_json::from_str::<serde_json::Value>(file_content?.as_str());
                         if let Err(_) = root { continue; }
                         let root = root.unwrap();
                         let libr = root["libraries"].is_array();
@@ -994,8 +1339,7 @@ pub mod launcher_mod {
                 }else if !suffix.contains(".") {
                     let sha = super::main_mod::get_sha1(ps.as_str());
                     if let None = sha { continue; }
-                    let sha = sha.unwrap();
-                    if sha.eq(suffix) {
+                    if sha?.eq(suffix) {
                         return Some(ps)
                     }
                 }
@@ -1017,7 +1361,7 @@ pub mod launcher_mod {
             if i_str.contains("rules") { continue; }
             let i_str = i.as_str();
             if let None = i_str { continue; }
-            let i_str = i_str.unwrap().replace(" ", "");
+            let i_str = i_str?.replace(" ", "");
             res.push(i_str.clone());
         }
         Some(res.clone())
@@ -1064,7 +1408,6 @@ pub mod launcher_mod {
         for i in json_lib.into_iter() {
             let name = i["name"].as_str();
             if let None = name { continue; }
-            let name = name.unwrap();
             let expect_rule = judge_mc_rules(&i.clone());
             let mut expect_downloads = true;
             if let Some(e) = i.get("downloads") {
@@ -1079,7 +1422,7 @@ pub mod launcher_mod {
                     }
                 }
             }
-            if expect_rule && expect_downloads { raw_list.push(name.to_string()) }
+            if expect_rule && expect_downloads { raw_list.push(name?.to_string()) }
         }
         for i in raw_list.into_iter() {
             if !no_list.contains(&i) {
@@ -1106,16 +1449,15 @@ pub mod launcher_mod {
             } else {
                 let temp_1 = temp_list.iter().position(|x| x == &nonum);
                 if let None = temp_1 { continue; }
-                let temp_1 = temp_1.unwrap();
-                let temp_2 = no_low.get(temp_1);
+                let temp_2 = no_low.get(temp_1?);
                 if let None = temp_2 { continue; }
-                let temp_2 = extract_number(temp_2.unwrap().to_string(), true);
+                let temp_2 = extract_number(temp_2?.to_string(), true);
                 let temp_3 = temp_2.parse::<u64>();
                 if let Err(_) = temp_3 { continue; }
                 let temp_3 = temp_3.unwrap();
                 if temp_3 < toint {
-                    no_low.remove(temp_1);
-                    no_low.insert(temp_1, i);
+                    no_low.remove(temp_1?);
+                    no_low.insert(temp_1?, i);
                 }
             }
         }
@@ -1147,7 +1489,7 @@ pub mod launcher_mod {
         if let Some(e) = tmp {
             res.push_str(e.as_str());
         } else {
-            res = res[0..res.rfind("$").unwrap()].to_string();
+            res = res[0..res.rfind("$")?].to_string();
         }
         Some(res)
     }
@@ -1420,6 +1762,9 @@ pub mod launcher_mod {
                 let pl = format!("{}{}{}", "{\"accesstoken\":\"", self.account.get_access_token(), "\"}");
                 let po = super::account_mod::UrlMethod::new(t.as_str());
                 let pl = po.post(pl.as_str(), true);
+                let ap = super::some_var::AUTHLIB_PATH.with_borrow(|e| e.clone());
+                let ap = std::path::Path::new(ap.as_str());
+                if !ap.exists() || ap.is_dir() { return ERR_LAUNCH_ACCOUNT_AUTHLIB; }
                 if let None = pl { return ERR_LAUNCH_ACCOUNT_THIRDPARTY_ACCESS_TOKEN_OR_URL; }
             }
             let jpath = std::path::Path::new(self.java_path.as_str());
@@ -1463,23 +1808,22 @@ pub mod launcher_mod {
                 result.push(String::from("${classpath}"));
             }
             if !self.account.get_base().is_empty() {
-                unsafe {
-                    if super::some_var::AUTHLIB_PATH.is_empty(){
-                        panic!("You're not assign the AUTHLIB_PATH in some_var mod, please retry!")
-                    }
-                    let path = std::path::Path::new(super::some_var::AUTHLIB_PATH.as_str());
-                    if path.exists() && path.is_file() {
-                        result.push(format!("-javaagent:{}={}",
-                                            super::some_var::AUTHLIB_PATH.as_str(),
-                                            self.account.get_url()
-                        ));
-                        result.push("-Dauthlibinjector.side=client".to_string());
-                        result.push(format!("-Dauthlibinjector.yggdrasil.prefetched={}",
-                                            self.account.get_base()
-                        ));
-                    }else{
-                        panic!("You're AUTHLIB_PATH file is not exist, please retry!")
-                    }
+                let ap = super::some_var::AUTHLIB_PATH.with_borrow(|e| e.clone());
+                if ap.is_empty(){
+                    panic!("You're not assign the AUTHLIB_PATH in some_var mod, please retry!")
+                }
+                let path = std::path::Path::new(ap.as_str());
+                if path.exists() && path.is_file() {
+                    result.push(format!("-javaagent:{}={}",
+                                        ap,
+                                        self.account.get_url()
+                    ));
+                    result.push("-Dauthlibinjector.side=client".to_string());
+                    result.push(format!("-Dauthlibinjector.yggdrasil.prefetched={}",
+                                        self.account.get_base()
+                    ));
+                }else{
+                    panic!("You're AUTHLIB_PATH file is not exist, please retry!")
                 }
             }
             result.push(format!("-Xmn{}m", self.min_memory));
@@ -1511,14 +1855,14 @@ pub mod launcher_mod {
                 result.extend(add_game.clone());
             }
             if result.contains(&"optifine.OptiFineForgeTweaker".to_string()) {
-                let temp_1 = result.iter().position(|x| x.eq("optifine.OptiFineForgeTweaker")).unwrap();
+                let temp_1 = result.iter().position(|x| x.eq("optifine.OptiFineForgeTweaker"))?;
                 result.remove(temp_1 - 1);
                 result.remove(temp_1 - 1);
                 result.push("--tweakClass".to_string());
                 result.push("optifine.OptiFineForgeTweaker".to_string());
             }
             if result.contains(&"optifine.OptiFineTweaker".to_string()) {
-                let temp_1 = result.iter().position(|x| x.eq("optifine.OptiFineTweaker")).unwrap();
+                let temp_1 = result.iter().position(|x| x.eq("optifine.OptiFineTweaker"))?;
                 result.remove(temp_1 - 1);
                 result.remove(temp_1 - 1);
                 result.push("--tweakClass".to_string());
@@ -1526,7 +1870,7 @@ pub mod launcher_mod {
             }
             let libs = get_mc_libs(real_json.clone(), self.root_path.as_str(), self.version_path.as_str());
             if let None = libs { return None; }
-            let libs = libs.unwrap();
+            let libs = libs?;
             for i in result.iter_mut() {
                 *i = i
                     .replace("${natives_directory}", 
