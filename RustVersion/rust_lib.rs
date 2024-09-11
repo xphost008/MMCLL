@@ -308,7 +308,7 @@ pub mod download_mod {
             if rv.len() < 1 {
                 return Err(ERR_DOWNLOAD_FORGE_VERSION_NOT_FOUNT);
             }
-            return Ok(res.clone());
+            Ok(res.clone())
         } else {
             let meta = match super::some_var::DOWNLOAD_SOURCE.with_borrow(|e| e.clone()) {
                 2 => { "https://bmclapi2.bangbang93.com/neoforge/meta/api/maven/details/releases/net/neoforged/neoforge".to_string() }
@@ -349,7 +349,7 @@ pub mod download_mod {
             if rv.len() < 1 {
                 return Err(ERR_DOWNLOAD_FORGE_VERSION_NOT_FOUNT);
             }
-            return Ok(res.clone());
+            Ok(res.clone())
         }
     }
     #[allow(unused)]
@@ -1617,8 +1617,8 @@ pub mod launcher_mod {
                 root_path: root_path.to_string(),
                 version_path: version_path.to_string(),
                 game_path: game_path.to_string(),
-                window_height: 854,
-                window_width: 480,
+                window_height: 480,
+                window_width: 854,
                 min_memory: 256,
                 max_memory: 4096,
                 custom_info: format!("{}-{}", super::some_const::LAUNCHER_NANE, super::some_const::LAUNCHER_VERSION),
