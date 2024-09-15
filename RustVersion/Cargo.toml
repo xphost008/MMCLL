@@ -25,6 +25,7 @@ quick-xml = { version = "0.36.1", features = ["async-tokio"] }                  
 encoding_rs = "0.8.34"                                                          # 将字符串转编码（GBK to UTF-8）如果你不需要防止大聪明玩家，可以不装这个库，然后在程序里面把get_file函数改成read_to_string即可。
 # 以下是可选库
 
+[target.'cfg(windows)'.dependencies]
 pelite = "0.10.0"  # 可选库，用于获取exe的版本以及位数。通常用于获取Java的版本和位数。
 # 该库仅限Windows，如果你需要跨平台，请向作者提出建议，并附赠你的代码！
 # 如果不需要此类库，你需要删除rust_lib里的【269行的函数以及296行的所有函数内容】

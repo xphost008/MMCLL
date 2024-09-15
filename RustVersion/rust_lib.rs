@@ -30,6 +30,12 @@ pub mod some_const {
     pub const ERR_LAUNCH_MAX_MEMORY: i32 = -13;  //最大内存错误（小于1024或大于系统内存）
     pub const ERR_LAUNCH_CUSTOM_INFO: i32 = -14;  //自定义信息错误（未填写，必须要个默认值！）
     pub const ERR_LAUNCH_ACCOUNT_AUTHLIB: i32 = -15;  //Authlib-Injector.jar未找到。（仅在登录第三方时触发）
+    //以下是启动过程中可能发生的报错
+    pub const ERR_GAME_ELIGIBLE_JSON_NOT_FOUND: i32 = -16;  //无法在版本文件夹中读取到版本JSON。（需要重新下载一遍MC）
+    pub const ERR_GAME_INHERITS_FROM_VERSION_LOSE: i32 = -17;  //已从版本json中找到inheritsFrom键，但是无法找到依赖版本。（需要重新下载一遍MC）
+    pub const ERR_GAME_CANNOT_UNZIP_NATIVE: i32 = -18;  //无法解压natives文件，请重试！
+    pub const ERR_GAME_INHERITS_JSON_STRUCTURE: i32 = -19;  //已获取到inheritsFrom键下的版本json，但是结构不对。（比如找不到mainClass等。）
+    pub const ERR_GAME_RAW_JSON_STRUCTURE: i32 = -20;  //JSON的结构不对。
     //以下是账号登录时的部分错误代码
     pub const ERR_LOGIN_CANNOT_GET_USERCODE: i32 = -1;  //未成功获取用户代码
     pub const ERR_LOGIN_DEVICE_CODE_INVALID: i32 = -2;  //微软登录，暂未完成登录。
@@ -360,6 +366,11 @@ pub mod download_mod {
      * 会自动匹配下载源，只需要提前将DOWNLOAD_SOURCE赋值完毕即可。
      * 1：官方源、2：BMCLAPI
      * 目前有且仅有上述两个源
+     * 在下载自定义函数的时候，仅需使用tokio运行一次该函数即可。
+     * 因为该库会自动调用最大线程进行切割文件并进行下载。
+     * 当然，如果你想自己实现多线程下载的话，也可以调用UrlMethod的get_default_async自主实现多异步下载。、
+     * 除了Rust语言有async异步以外，Java、Python、Go等语言都有异步模型，因此均采用多异步而不是多线程进行下载。
+     * 除了某些语言可能没有多线程，例如Delphi/Object Pascal仅有的Task、Thread等。
      */
     impl DownloadMethod {
         /**
@@ -372,33 +383,29 @@ pub mod download_mod {
                 key: key.to_string(),
             }
         }
-        #[allow(unused)]
-        pub async fn install_minecraft() -> Result<(), i32> {
-            Ok(())
-        }
-        #[allow(unused)]
-        pub async fn install_java() -> Result<(), i32> {
-            Ok(())
-        }
-        #[allow(unused)]
-        pub async fn install_forge() -> Result<(), i32> {
-            Ok(())
-        }
-        #[allow(unused)]
         /**
-         * 在下载自定义函数的时候，仅需使用tokio运行一次该函数即可。
-         * 因为该库会自动调用最大线程进行切割文件并进行下载。
-         * 当然，如果你想自己实现多线程下载的话，也可以调用UrlMethod的get_default_async自主实现多并发下载。、
-         * 除了Rust语言有async并发以外，Java、Python、Go等语言都有并发模型，因此均采用多并发而不是多线程进行下载。
-         * 除了某些语言可能没有多线程，例如Delphi/Object Pascal仅有的Task、Thread等。
+         * 该函数使用的是安装Minecraft的类库。并且实时显示回显在callback里。
          */
-        pub async fn download_custom() -> Result<(), i32> {
+        #[allow(unused)]
+        pub async fn install_minecraft_libraries() -> Result<(), i32> {
             Ok(())
         }
-        #[allow(unused)]
-        pub async fn get_mc_metadata() -> Option<String> {
-            None
-        }
+        // #[allow(unused)]
+        // pub async fn install_java() -> Result<(), i32> {
+        //     Ok(())
+        // }
+        // #[allow(unused)]
+        // pub async fn install_forge() -> Result<(), i32> {
+        //     Ok(())
+        // }
+        // #[allow(unused)]
+        // pub async fn download_custom() -> Result<(), i32> {
+        //     Ok(())
+        // }
+        // #[allow(unused)]
+        // pub async fn get_mc_metadata() -> Option<String> {
+        //     None
+        // }
     }
 }
 /**
@@ -1785,11 +1792,12 @@ pub mod launcher_mod {
         /**
          * 拼接全局参数
          */
-        fn put_arguments(&self, real_json: String, def_jvm: String, defn_jvm: String) -> Option<Vec<String>> {
-            let root = serde_json::from_str::<serde_json::Value>(real_json.as_str()).ok()?;
-            let mcid = root["id"].as_str()?;
-            let main_class = root["mainClass"].as_str()?;
-            let asset_index = root["assetIndex"]["id"].as_str()?;
+        fn put_arguments(&self, real_json: String, def_jvm: String, defn_jvm: String) -> Result<Vec<String>, i32> {
+            use super::some_const::*;
+            let root = serde_json::from_str::<serde_json::Value>(real_json.as_str()).map_err(|_| ERR_GAME_RAW_JSON_STRUCTURE)?;
+            let mcid = root["id"].as_str().ok_or(ERR_GAME_RAW_JSON_STRUCTURE)?;
+            let main_class = root["mainClass"].as_str().ok_or(ERR_GAME_RAW_JSON_STRUCTURE)?;
+            let asset_index = root["assetIndex"]["id"].as_str().ok_or(ERR_GAME_RAW_JSON_STRUCTURE)?;
             let mut result: Vec<String> = Vec::new();
             let def_jvm: Vec<String> = def_jvm.split_whitespace().collect::<Vec<&str>>().iter().map(|e| String::from(*e)).collect();
             let defn_jvm: Vec<String> = defn_jvm.split_whitespace().collect::<Vec<&str>>().iter().map(|e| String::from(*e)).collect();
@@ -1842,7 +1850,7 @@ pub mod launcher_mod {
                     result.extend(judge_game);
                 }
             } else {
-                result.extend(judge_arguments(real_json.clone(), "game")?);
+                result.extend(judge_arguments(real_json.clone(), "game").ok_or(ERR_GAME_RAW_JSON_STRUCTURE)?);
             }
             if !self.additional_game.contains("--fullScreen") {
                 result.push("--width".to_string());
@@ -1855,22 +1863,20 @@ pub mod launcher_mod {
                 result.extend(add_game.clone());
             }
             if result.contains(&"optifine.OptiFineForgeTweaker".to_string()) {
-                let temp_1 = result.iter().position(|x| x.eq("optifine.OptiFineForgeTweaker"))?;
+                let temp_1 = result.iter().position(|x| x.eq("optifine.OptiFineForgeTweaker")).unwrap();
                 result.remove(temp_1 - 1);
                 result.remove(temp_1 - 1);
                 result.push("--tweakClass".to_string());
                 result.push("optifine.OptiFineForgeTweaker".to_string());
             }
             if result.contains(&"optifine.OptiFineTweaker".to_string()) {
-                let temp_1 = result.iter().position(|x| x.eq("optifine.OptiFineTweaker"))?;
+                let temp_1 = result.iter().position(|x| x.eq("optifine.OptiFineTweaker")).unwrap();
                 result.remove(temp_1 - 1);
                 result.remove(temp_1 - 1);
                 result.push("--tweakClass".to_string());
                 result.push("optifine.OptiFineTweaker".to_string());
             }
-            let libs = get_mc_libs(real_json.clone(), self.root_path.as_str(), self.version_path.as_str());
-            if let None = libs { return None; }
-            let libs = libs?;
+            let libs = get_mc_libs(real_json.clone(), self.root_path.as_str(), self.version_path.as_str()).ok_or(ERR_GAME_RAW_JSON_STRUCTURE)?;
             for i in result.iter_mut() {
                 *i = i
                     .replace("${natives_directory}", 
@@ -1904,32 +1910,50 @@ pub mod launcher_mod {
                     .replace("${user_properties}", "{}")
                     .replace("${classpath_separator}", ";");  //MacOS 是 冒号【:】
             }
-            Some(result)
+            Ok(result)
         }
         /**
          * 如果没有错误，则会调用该函数。如果启动过程中出现不可预知的错误，则会直接panic掉！
          */
-        fn game_launch(&self) {
+        fn game_launch(&self) -> i32 {
+            use super::some_const::*;
             let def_jvm: String = String::from("-XX:+UseG1GC -XX:-UseAdaptiveSizePolicy -XX:-OmitStackTraceInFastThrow -Dfml.ignoreInvalidMinecraftCertificates=true -Dfml.ignorePatchDiscrepancies=true -Dlog4j2.formatMsgNoLookups=true");
             let defn_jvm: String = String::from("-XX:HeapDumpPath=MojangTricksIntelDriversForPerformance_javaw.exe_minecraft.exe.heapdump");
-            let version_json_path = get_mc_real_path(self.version_path.clone(), ".json").expect("Cannot find eligible json in the version dir, please retry!");
+            let version_json_path = get_mc_real_path(self.version_path.clone(), ".json");
+            if let None = version_json_path { return ERR_GAME_ELIGIBLE_JSON_NOT_FOUND; }
+            let version_json_path = version_json_path.unwrap();
             let final_json: String;
-            let raw_json = super::main_mod::get_file(version_json_path.as_str()).expect("Cannot read json in the version dir, please retry!");
-            let inherits_json = get_mc_inherits_from(self.version_path.clone(), "inheritsFrom").expect("Cannot find vanilla key pass version inheritsFrom key, you have not download vanilla version, please retry!");
+            let raw_json = super::main_mod::get_file(version_json_path.as_str());
+            if let None = raw_json { return ERR_GAME_ELIGIBLE_JSON_NOT_FOUND; }
+            let raw_json = raw_json.unwrap();
+            let inherits_json = get_mc_inherits_from(self.version_path.clone(), "inheritsFrom");
+            if let None = inherits_json { return ERR_GAME_INHERITS_FROM_VERSION_LOSE; }
+            let inherits_json = inherits_json.unwrap();
             if !inherits_json.eq(self.version_path.as_str()) {
-                let file = get_mc_real_path(inherits_json, ".json").expect("Cannot read already find inheritsFrom key to the vanilla json, please retry!");
-                final_json = super::main_mod::get_file(file.as_str()).expect("Cannot read already find inheritsFrom key to the vanilla json content, please retry!");
+                let file = get_mc_real_path(inherits_json, ".json");
+                if let None = file { return ERR_GAME_INHERITS_FROM_VERSION_LOSE; }
+                let file = file.unwrap();
+                let f_json = super::main_mod::get_file(file.as_str());
+                if let None = f_json { return ERR_GAME_INHERITS_FROM_VERSION_LOSE; }
+                final_json = f_json.unwrap();
             }else{
                 final_json = raw_json.clone();
             }
             if !unzip_native(final_json.clone(), self.root_path.as_str(), self.version_path.as_str()) {
-                panic!("Cannot unzip natives, please retry!")
+                return ERR_GAME_CANNOT_UNZIP_NATIVE;
             }
-            let real_json = replace_mc_inherits_from(raw_json, final_json).expect("Cannot find id or mainClass in inheritsFrom json, please retry!");
-            let mut param = self.put_arguments(real_json.clone(), def_jvm.clone(), defn_jvm.clone()).expect("Cannot join all param in your params, please retry!");
+            let real_json = replace_mc_inherits_from(raw_json, final_json);
+            if let None = real_json {
+                return ERR_GAME_INHERITS_JSON_STRUCTURE;
+            }
+            let real_json = real_json.unwrap();
+            let param = self.put_arguments(real_json.clone(), def_jvm.clone(), defn_jvm.clone());
+            if let Err(e) = param { return e; }
+            let mut param = param.unwrap();
             param.splice(0..0, [self.java_path.clone()]);
             let command = param.iter().map(AsRef::as_ref).collect();
             (self.callback)(command);
+            super::some_const::OK
             // return param.unwrap();
         }
     }
@@ -2076,8 +2100,12 @@ pub mod launcher_mod {
         if code != 0 {
             Err(code)
         } else {
-            res.game_launch();
-            Ok(())
+            let code = res.game_launch();
+            if code != 0 {
+                Err(code)
+            }else{
+                Ok(())
+            }
         }
     }
 }
