@@ -68,10 +68,10 @@ func (url *UrlMethod) Get(authorization string) (string, error) {
 	return string(res), err
 }
 
-// GetDefault 默认请求，不带Authorization的请求
-func (url *UrlMethod) GetDefault() (string, error) {
+// GetDefault 默认请求，不带Authorization的请求，返回[]byte二进制数据，如果需要字符串转换，请自行添加string(res)
+func (url *UrlMethod) GetDefault() ([]byte, error) {
 	res, err := url.baseRequest(http.MethodGet, nil, []byte(""))
-	return string(res), err
+	return res, err
 }
 
 type AccountResult struct {

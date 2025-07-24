@@ -375,8 +375,8 @@ func ExtractNumber(str string) string {
 	return result
 }
 
-// LibIndexOf 用于查找所有 Lib 中可能出现的重复字段并且返回索引
-func LibIndexOf(libs []string, lib string) int {
+// LibsIndexOf 用于查找所有 Lib 中可能出现的重复字段并且返回索引
+func LibsIndexOf(libs []string, lib string) int {
 	for i, l := range libs {
 		left1 := ExtractNumber(l)
 		left2 := ExtractNumber(lib)
@@ -418,7 +418,7 @@ func GetMCLibs(realJson map[string]any, rootPath, versionPath string) ([]string,
 			optifines = append(optifines, name)
 			continue
 		}
-		if index := LibIndexOf(result, path); index > 0 {
+		if index := LibsIndexOf(result, path); index > 0 {
 			result[index] = path
 		} else {
 			result = append(result, path)
