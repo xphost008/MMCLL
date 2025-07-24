@@ -1,0 +1,37 @@
+name: Feature submit
+description: if you have some good advice, please submit it to us!
+labels: ["BUG"]
+assignees:
+  - xphost008
+body:
+- type: checkboxes
+  id: "check"
+  attributes:
+    label: "checked"
+    description: "Please check below question and comfirm"
+    options:
+    - label: "I'm sure this functions or this suggestion not in plan!"
+    - label: "I'm sure the issue list haven't this issue in same opinion!"
+      required: true
+- type: textarea
+  id: "problem"
+  attributes:
+    label: What is your problem 
+    placeholder: "answer here"
+  validations:
+    required: true
+- type: textarea
+  id: "help"
+  attributes:
+    label: If this bug is fix, what it can be help with other development?
+    placeholder: ""
+  validations:
+    required: true
+- type: checkboxes
+  id: "check"
+  attributes:
+    label: "continue"
+    description: "If the author adopts your suggestion, will you continue to use this library?"
+    options:
+    - label: "I'm sure I'll continue to use this library!"
+      required: true

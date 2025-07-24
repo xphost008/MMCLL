@@ -1,0 +1,64 @@
+name: BUG submit
+description: if you have some question, please submit it to us!
+labels: ["BUG"]
+assignees:
+  - xphost008
+body:
+- type: checkboxes
+  id: "check"
+  attributes:
+    label: "checked"
+    description: "Please check below question and comfirm"
+    options:
+    - label: "I'm sure this functions or this suggestion not in plan!"
+    - label: "I'm sure the issue list haven't this issue in same opinion!"
+      required: true
+- type: textarea
+  id: "problem"
+  attributes:
+    label: What is your problem 
+    placeholder: "answer here"
+  validations:
+    required: true
+- type: textarea
+  id: "function"
+  attributes:
+    label: Your execute function's name
+    placeholder: "answer here"
+  validations:
+    required: true
+- type: textarea
+  id: "param"
+  attributes:
+    label: your param input
+    placeholder: "answer here"
+  validations:
+    required: true
+- type: textarea
+  id: "expect"
+  attributes:
+    label: Expect output
+    placeholder: "answer here"
+  validations:
+    required: true
+- type: textarea
+  id: "cause"
+  attributes:
+    label: Problem Possible cause
+    placeholder: "if you don't know, please entry [I don't know]"
+  validations:
+    required: true
+- type: textarea
+  id: "environment"
+  attributes:
+    label: Your system environment 
+    placeholder: "Such as [Windows 11 24H2] or [Ubunto 24.04.1]"
+  validations:
+    required: true
+- type: textarea
+  id: "help"
+  attributes:
+    label: If this bug is fix, what it can be help with other development?
+    placeholder: ""
+  validations:
+    required: true

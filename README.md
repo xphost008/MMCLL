@@ -1,30 +1,18 @@
-# 这里是由xphost制作的Minecraft启动器类库
+# Hello there! This is MMCLL Repository!
 
-## 项目名称：
+## Chinese Readme:
 
-- 该项目立项于2023.4.29，所作之事皆在为简化Minecraft启动器开发做准备。
-- 该项目名称原定（2023.3.18）为MoreMineCraftLauncherLib，后为简化名称因此被称为：MMCLL。
-- MMCLL：全称正如上面项目名称一致。
-- 该项目致力于用任意一款编程语言开发Minecraft Launcher做准备。
+[Click me](./README_CN.md)
 
-## 这里分为几类类库：
+## This Repository is make you build a Minecraft Launcher Quickly!
 
-1. C++类库
-2. Java类库
-3. C#类库
-4. Python类库
-5. Delphi类库
-6. 易语言类库
-7. Go语言类库
-8. Rust类库
+- This project approval from 2023.4.29, Everything do is for you make a minecraft launcher!
+- This project full name is `More Mine Craft Launcher Lib`, the abbreviation is `MMCLL`
+- This project is dedicated to make all programming language to development MCLauncher to get ready!
 
-- 这几种类库为作者随意制作，可能有些许的不足，但这些事也几乎微不足道。如果你还有更好的建议，欢迎在此处提出issue。
+## Some of Library Language:
 
-## 使用方法：
-
-1. 进入你所需要的源码库，源码库类型见下方：
-
-|语言|源码库文件夹|完成进度|
+|Library Language|Source Directory|Completion level|
 |----|----|----|
 |C++|CppVersion|0%|
 |Java|JavaVersion|0%|
@@ -32,108 +20,72 @@
 |Python|PythonVersion|18%|
 |Delphi|DelphiVersion|5%|
 |易语言|EVersion|0%|
-|Go|GoVersion|0%|
+|Go|GoVersion|23%|
 |Rust|RustVersion|58%|
 
-- 其中，很多种文件夹有多个文件。只有极少数语言里仅含有单个文件。例如：
+- This library are not put to any lib url, such as `rust crates.io`, `C# nuget`, `Java maven` and more!
+- All of library is Single File, Such as `JavaVersion` has `JavaLib.java`, `RustVersion` has `rust_lib.rs`
+- Maybe some library has double file, such as `JavaVersion` has `pom.xml`, `RustVersion` has `Cargo.toml` and more.
+- **I need to correct one point**, The E Version is only Chinese xd:!
 
-1. Java里面可能会有maven.xml文件等。
-2. Python里可能会含有requestment.txt文件等。
-2. Go语言里面可能会有go.mod文件等。
-3. Rust里面可能会有Cargo.toml文件等。
+### 2025-02- Update:
 
-- 其中，由于易语言的库是直接发布【.e】后缀的源码，并且附带一个【.ec】后缀的类库，并非dll之类的类库，因此大家需要在易语言里导入这个ec文件就好了。如果想看源码的话，就请自行下载e后缀的进行查看噢！
+- This time, the all of Libraries has multi file! you just need to copy that in your workspace after you watch the README.md file!
 
-## 许可协议：
+## License
 
-- 本类库使用的协议为MIT协议，大家可以随意分发，也同意大家制作出的启动器进行商业闭源。但是你必须遵守开源协议，在制作出的启动器中对该库作者进行鸣谢。
-- 该库与Little Limbo Launcher的开源库许可证不相同，LLL启动器使用的开源协议是GPL。而这个类库使用的协议是MIT。
-- 该库与Tank Launcher Module的开源库许可证不相同，TLM启动器使用的开源协议是GPL。而这个类库使用的协议是MIT。
-- 作者将来发布的Tank Trait Trigger将进行闭源处理，因此不纳入本次考量范围。
+- This library is open source by MIT License. I agree all of developer close source by your project, but please statement a name of this library, let me know how many development use my library to make Minecraft Launcher!
 
-## 项目规范：
+## Project Contributor
 
-- 文件夹内还贴心的配备了README.md文件，用于指导大家下载所需要的依赖。【如C#需要的Newtonsoft.JSON、Java所需要的fastjson等。】
-- 大家只需要按需下载即可。如果遇到只有单个文件内容的源码，那你几乎可以不下载源文件，直接将源码复制粘贴到你的工作空间即可。然后按照README.md文件中，配好环境依赖即可。
-- 本类库中，无论哪一种语言，我都贴心的为所有的方法或者是函数添加了注释。因此不必担心无法理解函数的内容。【虽然函数内容并未做注释，但是函数的开头我都做了的！】
-- 同样的，在每一个文件夹中，我都贴心的为该语言单独设立了一个SPECIFIC.md，用于为该类中的每一个函数做一个详细的解读。
-- 我在每个文件夹中，提供了一个README.md，包括但不限于【目前实现的功能、版本号、工作进度等】。因此，文件夹里的README.md算是对这门语言最详细的教导了。
-- 我甚至还在每个文件夹里提供了一个EXAMPLE.md，用于昭告这个语言使用示例，如如何启动游戏等。
+- [Click me](CONTRIBUTOR.md)
 
-## 项目使用IDE工具（以及建议使用开发工具）
+## Project Specification
 
-|语言|IDE工具|
+- All directory has `README.md` and `SPECIFIC.md` and `EXAMPLE.md`
+- The README.md will guidance how to install all dependencies by this project! Btw, some of other libraries is open source by other license, you need to watch it!
+- the SPECIFIC.md will guidance how to use this library! This file can make sure you know that how to use all of this library functions!
+- The EXAMPLE.md will give you an example to launch Minecraft game and Download a new Minecraft!
+
+## Programming IDE
+
+|Languages|IDE tools|
 |----|----|
-|C++|Jetbrains Clion|
-|Java|Jetbrains Intellij IDEA|
-|C#|Jetbrains Rider|
+|Java|Jetbrains IDEA|
 |Python|Jetbrains PyCharm|
-|Delphi|RAD Studio|
+|C#|Jetbrains Rider|
+|C++|Jetbrains Clion|
 |易语言|易语言|
+|Delphi|RAD Studio|
 |Go|Jetbrains GoLand|
 |Rust|Jetbrains RustRover|
 
-- 别问我为什么这么喜欢JetBrains家的玩意，因为爱情！
+- That all of my favorite IDE tools, if you want to use it, you can bing above name!
 
-## 问题？
+## Question
 
-- 如果你有任何问题，欢迎在此github中提出问题。
-- 如果你自己习惯使用的语言在本类库中并没有，你可以提一个issue，或者如果你想贡献代码，也可以提交pull-request！
-- 你当然可以为我已经弃坑的语言提一个pull-request，但是请别提出issue了。
-- 本类库不会再提供的语言有：
+- This library will not provide Language:
 
-|不会提供的编程语言|原因|弃坑|
+|Language|Cause|is forbid|
 |----|----|----|
-|C|作为C++的前身，已经有C++了。|是|
-|Swift|作为IOS独特的语言，我不会（没有mac……|是|
-|Ruby|可以考虑一下，如果有人为我提出issue的话|待考虑|
-|Perl|啥都没有，我都不会这门语言|是|
-|Lua|也是一样的，啥也没有|是|
-|Julia|更一样了，啥也没有|是|
-|Zig、Pony、Pike、Vala|这些等异常冷门的语言，我不会|是|
+|C|We already have C++, so not C|yes|
+|Swift|This is Apple Official Language, I haven't, so not!|yes|
+|Ruby|hmm, To be considered|no|
+|Perl|this language not have more function to call, I‘m not good at this|no|
+|Lua|not have more function, not goot at|yes|
+|Julia|not have more function, not good at|yes|
+|Zig, Pony, Pike|Maybe some year's later...|yes|
 
-**已删除TypeScript语言标记！原因：《我不造啊》**
+## Contributor
 
-## 关于贡献名单
+1. if you submit a pull request for this repostory, and this pull is the other language without author done, you can get `Epic` Contributor!
 
-1. 如果你为作者提交了一个issue，并且提交的是已有语言的bug，那我可能会将你添加至：【优秀贡献人员】中。
-2. 如果你为作者提交了一个issue，并且在已有语言的基础上，详细说明添加某个该有的函数或功能，那我可能会将你加入【精品贡献人员】中。
-3. 如果你为作者提交了一个pull request，直接帮助作者修复已有源码的bug，那我可能会将你加入【史诗贡献人员】中。
-4. 如果你为作者提交了一个pull request，并且这个pull request是另一门非常火的语言，你帮作者完善了类库，那我可能会将你加入【传奇贡献人员】中。
+2. If you submit a pull request for this repostory, and this pull is fix exists language features, you can get `Rare` Contributor!
 
-## 提交你的issue！
+3. if you submit a issue for this repostory, and this issue is a suggestion or a documents for language, you can get `Uncommon` Contributor!
 
-提交issue报告流程：
-```
-1. 标题：【bug汇报、建议】+名称
+4. If you submit a issue for this repostory, and this issue is a bug when you use this library, you can get `Common` Contributor!
 
-2. 你要汇报的内容是什么？
+## Communication platform
 
-3. 你觉得这个内容会对开发者产生什么影响？
-
-【以下内容仅针对bug提交】
-
-4. 该【bug】出现在【源代码函数名】？
-
-5. 你是否针对此有了更好的解决方案？【如果你有更好的解决方案，你应该提交pull request而不是issue！】
-
-6. 你对该函数的输入参数是【】，输出的值是【】，你的预期结果是什么？
-
-【以下内容仅针对建议】
-
-4. 该功能是否能解决开发者的部分需求？【此项需填写你的需求】
-
-5. 如果作者解决了，你是否愿意无条件继续使用该模块？
-
-【以下针对所有】
-
-7. 你要提交的备注
-```
-
-对于提交pull request的话，没那么多讲究，作者只会看看你提交的源代码是否符合规范！
-
-## 交流平台
-
-加入我的kook频道吧：[点我加入](https://kook.vip/j8ZAq2)
-
-QQ群为内部小群，暂不受理加群消息！
+Our Kook server: [Click me](https://kook.vip/j8ZAq2)
