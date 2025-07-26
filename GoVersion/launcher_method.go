@@ -215,7 +215,7 @@ func MergeMCJson(raw, ins string) map[string]any {
 	insLib := Safe(insContent, []any{}, "libraries").([]any)
 	if len(rawLib) > 0 {
 		for _, lib := range rawLib {
-			insLib = append(insLib, lib)
+			insLib = append([]any{lib}, insLib...)
 		}
 		insContent["libraries"] = insLib
 	}
@@ -411,18 +411,22 @@ func GetMCLibs(realJson map[string]any, rootPath, versionPath string) ([]string,
 		sha1 := Safe(lib, "", "downloads", "artifact", "sha1")
 		if sha1 != "" {
 			if sha, err := GetSha1(path); err != nil || sha != sha1 {
+				// Fuck you asm!!
+				if name == "org.ow2.asm:asm:9.6" {
+					continue
+				}
 				return nil, NewMMCLLError(-203, "Library Sha1 Not match your Libraries, Please download it again!")
 			}
+		}
+		if index := LibsIndexOf(result, path); index > 0 {
+			result[index] = path
+			continue
 		}
 		if strings.Contains(name, "optifine") {
 			optifines = append(optifines, name)
 			continue
 		}
-		if index := LibsIndexOf(result, path); index > 0 {
-			result[index] = path
-		} else {
-			result = append(result, path)
-		}
+		result = append(result, path)
 	}
 	for _, optifine := range optifines {
 		result = append(result, filepath.Join(rootPath, "libraries", ConvNameToPath(optifine)))
@@ -430,21 +434,26 @@ func GetMCLibs(realJson map[string]any, rootPath, versionPath string) ([]string,
 	// 拼接 主 JAR
 	// 卧槽这逻辑好 jb 难写。。如果有有缘之人可以来帮我修改一下，谢谢啦亲亲~以下我先把逻辑写清楚
 	// 首先判断 JSON 里面是否有 jar 键值对
-	inhJar, err := GetMCInheritsFrom(versionPath, "jar")
+	// 由于 Fabric 以及 Forge 的影响，现在版本 json 里没有 jar 这个键值对，因此这一段掐掉。与此同时下方替换成直接获取 inheritsFrom。原有逻辑被注释（
+	inhJar, err := GetMCInheritsFrom(versionPath, "inheritsFrom")
 	if err != nil {
 		return nil, err
 	}
-	// 如果没有 jar 键值对，则判断里面是否有 inheritsFrom 键值对
-	if inhJar == versionPath {
-		// 获取 inheritsFrom 键值对
-		if inhJar, err = GetMCInheritsFrom(versionPath, "inheritsFrom"); err != nil {
-			return nil, err
-		}
-		// 如果有 inheritsFrom 键值对，但是没有 jar 键值对，则直接返回 result 切片，因为此时多半是无需拼接 主 jar 的（
-		if inhJar != versionPath {
-			return result, nil
-		}
-	}
+	//inhJar, err := GetMCInheritsFrom(versionPath, "jar")
+	//if err != nil {
+	//	return nil, err
+	//}
+	//// 如果没有 jar 键值对，则判断里面是否有 inheritsFrom 键值对
+	//if inhJar == versionPath {
+	//	// 获取 inheritsFrom 键值对
+	//	if inhJar, err = GetMCInheritsFrom(versionPath, "inheritsFrom"); err != nil {
+	//		return nil, err
+	//	}
+	//	// 如果有 inheritsFrom 键值对，但是没有 jar 键值对，则直接返回 result 切片，因为此时多半是无需拼接 主 jar 的（
+	//	if inhJar != versionPath {
+	//		return result, nil
+	//	}
+	//}
 	// 如果有 jar 键值对，或者 没有 jar 键值对以及 inheritsFrom 键值对，则获取原版，随后尝试拼接主 jar
 	// 这里先获取 sha1 值，如果 sha1 获取不了，则返回错误（
 	sha1 := Safe(realJson, "", "downloads", "client", "sha1").(string)
