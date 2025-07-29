@@ -752,7 +752,7 @@ func (lg launchGame) checkError() error {
 }
 
 // launch 如果参数无误则尝试启动
-func (lg launchGame) launch() error {
+func (lg launchGame) launch() (err error) {
 	var result []string
 	result = append(result, "-XX:+UseG1GC", "-XX:-UseAdaptiveSizePolicy", "-XX:-OmitStackTraceInFastThrow", "-Dstderr.encoding=UTF-8", "-Dstdout.encoding=UTF-8", "-Dfml.ignoreInvalidMinecraftCertificates=true", "-Dfml.ignorePatchDiscrepancies=true", "-Dlog4j2.formatMsgNoLookups=true")
 
@@ -806,6 +806,15 @@ func (lg launchGame) launch() error {
 		return NewMMCLLError(-108, err.Error())
 	}
 	param = append([]string{lg.javaPath}, param...)
+	defer func() {
+		if r := recover(); r != nil {
+			if e, ok := r.(error); ok {
+				err = e
+			} else {
+				err = fmt.Errorf("minecraft is CRASH!! The error message is: %v", r)
+			}
+		}
+	}()
 	lg.callback(param)
 	return nil
 }
