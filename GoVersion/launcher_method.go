@@ -411,11 +411,13 @@ func GetMCLibs(realJson map[string]any, rootPath, versionPath string) ([]string,
 		sha1 := Safe(lib, "", "downloads", "artifact", "sha1")
 		if sha1 != "" {
 			if sha, err := GetSha1(path); err != nil || sha != sha1 {
+				// 最近有朋友反馈：手动修改了 authlib 之后，由于 sha1 对不上，导致这里直接返回错误，故这里不特判 asm，将直接 continue 掉。
+				continue
 				// Fuck you asm!!
-				if name == "org.ow2.asm:asm:9.6" {
-					continue
-				}
-				return nil, NewMMCLLError(-203, "Library Sha1 Not match your Libraries, Please download it again!")
+				// if name == "org.ow2.asm:asm:9.6" {
+				// 	continue
+				// }
+				// return nil, NewMMCLLError(-203, "Library Sha1 Not match your Libraries, Please download it again!")
 			}
 		}
 		if index := LibsIndexOf(result, path); index > 0 {
