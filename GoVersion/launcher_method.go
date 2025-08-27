@@ -389,7 +389,7 @@ func LibsIndexOf(libs []string, lib string) int {
 
 // GetMCLibs 通过 realJson 获取到 MC 所有的 Libraries，并将其拼接到 -cp 参数的后面。与此同时，还会拼接 versionPath 下的主 jar 文件！
 // result: 返回一个切片，你需要自己处理分号还是冒号的问题，在 Windows 上以 分号 作为分隔符，在类 Unix 系统上以 冒号 作为分隔符。
-func GetMCLibs(realJson map[string]any, rootPath, versionPath string) ([]string, error) {
+func GetMCLibs(realJson map[string]any, rootPath, versionPath string, isCheckLibraries bool) ([]string, error) {
 	var result []string
 	libs := Safe(realJson, []any{}, "libraries").([]any)
 	// Fuck you Optifine!!
@@ -408,16 +408,19 @@ func GetMCLibs(realJson map[string]any, rootPath, versionPath string) ([]string,
 			continue
 		}
 		path := filepath.Join(rootPath, "libraries", ConvNameToPath(name))
-		sha1 := Safe(lib, "", "downloads", "artifact", "sha1")
-		if sha1 != "" {
-			if sha, err := GetSha1(path); err != nil || sha != sha1 {
-				// 最近有朋友反馈：手动修改了 authlib 之后，由于 sha1 对不上，导致这里直接返回错误，故这里不特判 asm，将直接 continue 掉。
-				continue
-				// Fuck you asm!!
-				// if name == "org.ow2.asm:asm:9.6" {
-				// 	continue
-				// }
-				// return nil, NewMMCLLError(-203, "Library Sha1 Not match your Libraries, Please download it again!")
+		// 新增加了 isCheckLibraries【是否校验 Libraries！】现在可以手动判断是否需要校验了！
+		if isCheckLibraries {
+			sha1 := Safe(lib, "", "downloads", "artifact", "sha1")
+			if sha1 != "" {
+				if sha, err := GetSha1(path); err != nil || sha != sha1 {
+					// 最近有朋友反馈：手动修改了 glfw-patcher 之后，由于 sha1 对不上，导致这里直接返回错误，故这里不特判 asm，将直接 continue 掉。
+					// 由于现已更新 是否校验 sha1，因此，此处可以直接返回 NewMMCLLError 了！
+					// Fuck you asm!!
+					if name == "org.ow2.asm:asm:9.6" {
+						continue
+					}
+					return nil, NewMMCLLError(-203, "Library Sha1 Not match your Libraries, Please download it again!")
+				}
 			}
 		}
 		if index := LibsIndexOf(result, path); index > 0 {
@@ -550,36 +553,41 @@ func NewLaunchAccountThirdParty(name, uuid, accessToken, base, url string) Launc
 
 // LaunchOption 启动设置类（新建后无法修改account、javaPath、rootPath、versionPath几个必填项。）
 type LaunchOption struct {
-	account        LaunchAccount
-	javaPath       string
-	rootPath       string
-	versionPath    string
-	gamePath       string
-	windowHeight   uint32
-	windowWidth    uint32
-	minMemory      uint32
-	maxMemory      uint32
-	customInfo     string
-	additionalJvm  string
-	additionalGame string
+	account          LaunchAccount
+	javaPath         string
+	rootPath         string
+	versionPath      string
+	gamePath         string
+	isCheckLibraries bool
+	windowHeight     uint32
+	windowWidth      uint32
+	minMemory        uint32
+	maxMemory        uint32
+	customInfo       string
+	additionalJvm    string
+	additionalGame   string
 }
 
 // NewLaunchOption 新建一个启动设置类。（以下非必填的可以直接链式调用设置初始值）
 func NewLaunchOption(account LaunchAccount, javaPath, rootPath, versionPath, gamePath string) *LaunchOption {
 	return &LaunchOption{
-		account:        account,
-		javaPath:       javaPath,
-		rootPath:       rootPath,
-		versionPath:    versionPath,
-		gamePath:       gamePath,
-		windowHeight:   480,
-		windowWidth:    854,
-		minMemory:      256,
-		maxMemory:      1024,
-		customInfo:     LauncherName + "-" + LauncherVersion,
-		additionalJvm:  "",
-		additionalGame: "",
+		account:          account,
+		javaPath:         javaPath,
+		rootPath:         rootPath,
+		versionPath:      versionPath,
+		gamePath:         gamePath,
+		isCheckLibraries: true,
+		windowHeight:     480,
+		windowWidth:      854,
+		minMemory:        256,
+		maxMemory:        1024,
+		customInfo:       LauncherName + "-" + LauncherVersion,
+		additionalJvm:    "",
+		additionalGame:   "",
 	}
+}
+func (opt *LaunchOption) SetIsCheckLibraries(isCheckLibraries bool) {
+	opt.isCheckLibraries = isCheckLibraries
 }
 func (opt *LaunchOption) SetWindowWidth(windowWidth uint32) *LaunchOption {
 	opt.windowWidth = windowWidth
@@ -629,6 +637,10 @@ func (opt *LaunchOption) GamePath() string {
 	return opt.gamePath
 }
 
+func (opt *LaunchOption) IsCheckLibraries() bool {
+	return opt.isCheckLibraries
+}
+
 func (opt *LaunchOption) WindowHeight() uint32 {
 	return opt.windowHeight
 }
@@ -659,37 +671,39 @@ func (opt *LaunchOption) AdditionalGame() string {
 
 // launchGame 正式启动游戏的类
 type launchGame struct {
-	account        LaunchAccount
-	javaPath       string
-	rootPath       string
-	versionPath    string
-	gamePath       string
-	windowHeight   uint32
-	windowWidth    uint32
-	minMemory      uint32
-	maxMemory      uint32
-	customInfo     string
-	additionalJvm  string
-	additionalGame string
-	callback       func([]string)
+	account          LaunchAccount
+	javaPath         string
+	rootPath         string
+	versionPath      string
+	gamePath         string
+	isCheckLibraries bool
+	windowHeight     uint32
+	windowWidth      uint32
+	minMemory        uint32
+	maxMemory        uint32
+	customInfo       string
+	additionalJvm    string
+	additionalGame   string
+	callback         func([]string)
 }
 
 // NewLaunchStart 初始化启动类
 func newLaunchStart(option LaunchOption, callback func([]string)) launchGame {
 	ls := launchGame{
-		account:        option.account,
-		javaPath:       option.javaPath,
-		rootPath:       option.rootPath,
-		versionPath:    option.versionPath,
-		gamePath:       option.gamePath,
-		windowHeight:   option.windowHeight,
-		windowWidth:    option.windowWidth,
-		minMemory:      option.minMemory,
-		maxMemory:      option.maxMemory,
-		customInfo:     option.customInfo,
-		additionalJvm:  option.additionalJvm,
-		additionalGame: option.additionalGame,
-		callback:       callback,
+		account:          option.account,
+		javaPath:         option.javaPath,
+		rootPath:         option.rootPath,
+		versionPath:      option.versionPath,
+		gamePath:         option.gamePath,
+		isCheckLibraries: option.isCheckLibraries,
+		windowHeight:     option.windowHeight,
+		windowWidth:      option.windowWidth,
+		minMemory:        option.minMemory,
+		maxMemory:        option.maxMemory,
+		customInfo:       option.customInfo,
+		additionalJvm:    option.additionalJvm,
+		additionalGame:   option.additionalGame,
+		callback:         callback,
 	}
 	return ls
 }
@@ -869,7 +883,7 @@ func (lg launchGame) putArgument(realJson map[string]any, result []string) ([]st
 		result = append(result[:index-1], result[index+1:]...)
 		result = append(result, "--tweakClass", result[index])
 	}
-	libs, err := GetMCLibs(realJson, lg.rootPath, lg.versionPath)
+	libs, err := GetMCLibs(realJson, lg.rootPath, lg.versionPath, lg.isCheckLibraries)
 	if err != nil {
 		return nil, err
 	}
