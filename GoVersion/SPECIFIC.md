@@ -211,7 +211,7 @@ func LaunchGame(option LaunchOption, isStrict bool, callback func([]string)) err
 	闭包里的函数，其实就是拼接好的启动参数，你可以自行运行该参数~
 ```
 
-## rust_lib::account_mod
+## account_method.go
 ```
 type UrlMethod struct
 	网络获取的类
@@ -287,8 +287,93 @@ type AccountLogin struct
 	func (account *AccountLogin) RefreshMicrosoft()
 		通过refresh_token获取到AccountResult实现
 		该函数用于刷新你的access_token。你可以从第一次登录微软账号时，获取到的refresh_token进行刷新。
+
+	func (account *AccountLogin) GetUserCodeThirdOAuth(server string) (string, string, error)
+		通过server获取到你的第三方登录的UserCode和DeviceCode！
+		需要在前面New时填入ClientID
+
+	func (account *AccountLogin) LoginThirdPartyOAuth(server, deviceCode string) (*AccountResult, error) {
+		直接登录第三方！
+		前面的server需要填入你的第三方登录token接口，后面的deviceCode需要填入上一个函数返回的第二个参数！
+
+	func (account *AccountLogin) LoginThirdParty(username, password string) ([]*AccountResult, error)
+		手动通过账号密码登录第三方！
+		这里需要在前面New时填入服务器地址！【例如 https://littleskin.cn/api/yggdrasil！】
 ```
 
 ## info_${platform}.go
 
 一个跨平台的编译文件，内容很简单，自己去看就好了（
+
+## download_method.go
+
+```
+type ProxyType struct
+	返回代理结构体
+
+	Url      string
+		代理网址
+	Port     string
+		代理端口
+	Username string
+		验证用户名
+	Password string
+		验证密码
+	IsHttps  bool
+		是否是 https 代理
+	IsSocks  bool
+		是否是 Socks5 代理（此优先级比 Https 高）
+
+type Downloader interface
+	一个简单的下载接口
+	StartDownload(callback func(string, int, string, int, int64, int64))
+		闭包参数如下：
+		1. 当前网址
+		2. 重试次数
+		3. 请求返回错误信息（如果为空则没错）
+		4. 请求状态码
+		5. 总的下载量
+		6. 当前下载量
+
+
+type DownloadSingle struct
+	一个下载单文件的示例 
+	Url           string
+		请求网址
+	SavePath      string
+		保存路径
+	MaximumThread int
+		最大线程
+	RetryCount    int
+		重试次数
+	Proxy         ProxyType
+		代理结构体
+	Headers       map[string]string
+		填写可能的 Headers
+	Cookies       map[string]string
+		填写可能的 Cookies
+
+func NewProxy(url string, port string, username string, password string, isHttp bool, isSocks bool) ProxyType
+	返回一个代理结构体！
+
+func NewDownloadSingle(url string, savePath string, biggestThread int, retryCount int) DownloadSingle
+	最简单的下载，无需填入 Proxy 和 Headers 和 Cookie！
+
+func NewDownloadSingleWithProxy(url string, savePath string, biggestThread int, retryCount int, proxy ProxyType) DownloadSingle
+	需要填入代理的下载
+
+func NewDownloadWithHeadersCookies(url string, savePath string, biggestThread int, retryCount int, proxy ProxyType, headers map[string]string, cookies map[string]string) DownloadSingle
+	可以填入 Headers 和 Cookies 的下载！
+
+func NewHttpClient(proxy ProxyType) *http.Client
+	创建统一代理客户端
+
+func GetFileSize(url string) (int64, bool, int, error)
+	获取文件总体大小，与是否支持 Range 范围请求，和返回状态码。如果没有返回则返回error！
+
+func DownloadRange(urlParse string, start int64, end int64, proxy ProxyType, headers map[string]string, cookies map[string]string) ([]byte, error)
+	通过范围获取网络资源文件！如果可以的话，还必须附上 Proxy 代理、Headers 和 Cookies！
+
+func (d DownloadSingle) StartDownload(callback func(string, int, string, int, int64, int64))
+	同上 Downloader 接口
+```

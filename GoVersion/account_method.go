@@ -2,11 +2,14 @@ package mmcll
 
 import (
 	"bytes"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
 	"strconv"
+	"strings"
+	"time"
 )
 
 type UrlMethod struct {
@@ -20,15 +23,17 @@ func NewUrlMethod(url string) *UrlMethod {
 }
 
 // baseRequest 基础的请求函数
-func (url *UrlMethod) baseRequest(reqMethod string, header map[string]string, data []byte) ([]byte, error) {
+func (url *UrlMethod) baseRequest(reqMethod string, header map[string]string, cookie map[string]string, data []byte) ([]byte, error) {
 	if reqMethod == "" {
 		reqMethod = http.MethodGet
 	}
 	if header == nil {
 		header = make(map[string]string)
-		header["Content-Type"] = "application/x-www-form-urlencoded"
+		header["Content-Type"] = "application/x-www-form-urlencoded;charset=UTF-8"
 	}
-	header["User-Agent"] = LauncherUserAgent
+	if header["User-Agent"] == "" {
+		header["User-Agent"] = LauncherUserAgent
+	}
 	req, err := http.NewRequest(reqMethod, url.url, bytes.NewBuffer(data))
 	if err != nil {
 		return nil, err
@@ -36,17 +41,23 @@ func (url *UrlMethod) baseRequest(reqMethod string, header map[string]string, da
 	for k, v := range header {
 		req.Header.Set(k, v)
 	}
+	for k, v := range cookie {
+		req.AddCookie(&http.Cookie{
+			Name:  k,
+			Value: v,
+		})
+	}
 	client := &http.Client{}
+	client.Timeout = time.Second * 10
 	resp, err := client.Do(req)
 	if err != nil {
 		return nil, err
 	}
 	defer resp.Body.Close()
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, err
-	}
-	return body, nil
+	// if resp.StatusCode < 200 || resp.StatusCode > 299 {
+	// 	return nil, fmt.Errorf("http status code: %d", resp.StatusCode)
+	// }
+	return io.ReadAll(resp.Body)
 }
 
 // Post 请求
@@ -56,22 +67,44 @@ func (url *UrlMethod) Post(body string, isJSON bool) (string, error) {
 		header["Content-Type"] = "application/json;charset=UTF-8"
 		header["Accept"] = "application/json"
 	} else {
-		header["Content-Type"] = "application/x-www-form-urlencoded"
+		header["Content-Type"] = "application/x-www-form-urlencoded;charset=UTF-8"
 	}
-	res, err := url.baseRequest(http.MethodPost, header, []byte(body))
+	res, err := url.baseRequest(http.MethodPost, header, nil, []byte(body))
 	return string(res), err
 }
 
 // Get 请求，附带一个验证key的请求
 func (url *UrlMethod) Get(authorization string) (string, error) {
-	res, err := url.baseRequest(http.MethodGet, map[string]string{"Authorization": "Bearer " + authorization}, []byte(""))
+	res, err := url.baseRequest(http.MethodGet, map[string]string{"Authorization": "Bearer " + authorization}, nil, []byte(""))
 	return string(res), err
 }
 
 // GetDefault 默认请求，不带Authorization的请求，返回[]byte二进制数据，如果需要字符串转换，请自行添加string(res)
 func (url *UrlMethod) GetDefault() ([]byte, error) {
-	res, err := url.baseRequest(http.MethodGet, nil, []byte(""))
+	res, err := url.baseRequest(http.MethodGet, nil, nil, []byte(""))
 	return res, err
+}
+
+// Post 请求，但是附带一个 header 和 Cookie！
+func (url *UrlMethod) PostByHeaderAndCookie(header map[string]string, cookie map[string]string, body string) (string, error) {
+	res, err := url.baseRequest(http.MethodPost, header, cookie, []byte(body))
+	return string(res), err
+}
+
+// Get 请求，但是附带一个 header！
+func (url *UrlMethod) GetByHeaderAndCookie(header map[string]string, cookie map[string]string) ([]byte, error) {
+	res, err := url.baseRequest(http.MethodGet, header, cookie, []byte(""))
+	return res, err
+}
+
+// GetCurseForge 默认请求，但是附带上x-api-key，返回string
+func (url *UrlMethod) GetCurseForge(XApiKey string) (string, error) {
+	res, err := url.baseRequest(http.MethodGet, map[string]string{
+		"Accept":       "application/json",
+		"Content-Type": "application/json",
+		"x-api-key":    XApiKey,
+	}, nil, []byte(""))
+	return string(res), err
 }
 
 type AccountResult struct {
@@ -131,7 +164,7 @@ func (a *AccountResult) SetBase(base string) {
 	a.base = base
 }
 
-// AccountLogin key值在正版登录时，请输入client_id，如果是外置登录，请输入请求根网址【需要精确到/api/yggdrasil】。
+// AccountLogin key值在正版登录时，请输入client_id，如果是外置登录，请输入请求根网址【需要精确到/api/yggdrasil】，如果是 OAuth 登陆的第三方登陆，这里需要填写 ClientID。
 type AccountLogin struct {
 	key string
 }
@@ -199,25 +232,28 @@ func (account *AccountLogin) microsoft(loginCode string) (*AccountResult, error)
 	w3 := Safe(j3, "", "Token")
 	if w3 == "" {
 		ww3 := int64(Safe(j3, -1.0, "XErr").(float64))
-		if ww3 == 2148916233 {
-			return nil, NewMMCLLError(-17, "Your Account has not Xbox account, maybe you need to create an xbox account and buy Minecraft, then try to login again!")
-		} else if ww3 == 2148316235 {
-			return nil, NewMMCLLError(-18, "Your Account is banned, cause country or area is banned, so you cannot to login, please try to mount a VPN and try again!")
-		} else if ww3 == 2148316236 {
-			return nil, NewMMCLLError(-19, "Your Account is a child account, please login with family.microsoft.com and authorization your child account!")
-		} else if ww3 == 2148316237 {
-			return nil, NewMMCLLError(-20, "Your Account has risk, please login your account and pass the MSA authorization procedure!")
-		} else if ww3 == 2148316238 {
-			return nil, NewMMCLLError(-21, "Your Account adult verification is failed, please login your account and pass the adult verify!")
-		} else if ww3 == 2148316239 {
-			return nil, NewMMCLLError(-22, "Your Account Service Term is not pass, please login your account and pass the Service Term!")
-		} else {
+		switch ww3 {
+		case 2148916233:
+			return nil, NewMMCLLError(-17, "Your Account has not Xbox precon, maybe you need to create an xbox precon and buy Minecraft, then try to precon again!")
+		case 2148316235:
+			return nil, NewMMCLLError(-18, "Your Account is banned, cause country or area is banned, so you cannot to precon, please try to mount a VPN and try again!")
+		case 2148316236:
+			return nil, NewMMCLLError(-19, "Your Account is a child precon, please precon with family.microsoft.com and authorization your child precon!")
+		case 2148316237:
+			return nil, NewMMCLLError(-20, "Your Account has risk, please precon your precon and pass the MSA authorization procedure!")
+		case 2148316238:
+			return nil, NewMMCLLError(-21, "Your Account adult verification is failed, please precon your precon and pass the adult verify!")
+		case 2148316239:
+			return nil, NewMMCLLError(-22, "Your Account Service Term is not pass, please precon your precon and pass the Service Term!")
+		case 2148316240:
+			return nil, NewMMCLLError(-23, "Your Account is not verified, please precon your precon and pass the verification!")
+		default:
 			return nil, NewMMCLLError(-1001, "Unknown Error, please feedback to author by this window! The error code is: "+strconv.FormatInt(ww3, 10))
 		}
 	}
 	uhsXsts := Safe(j3, "", "DisplayClaims", "xui", 0, "uhs")
 	if uhsXsts != uhsXbox {
-		return nil, NewMMCLLError(-23, "The User Hash Xbox is not equal to the User Hash Xsts, Please try to login again!")
+		return nil, NewMMCLLError(-23, "The User Hash Xbox is not equal to the User Hash Xsts, Please try to precon again!")
 	}
 	k4 := fmt.Sprintf("{\"identityToken\":\"XBL3.0 x=%s;%s\"}", uhsXsts, w3)
 	u4 := NewUrlMethod(McLive)
@@ -257,6 +293,8 @@ func (account *AccountLogin) microsoft(loginCode string) (*AccountResult, error)
 	}
 	return result, nil
 }
+
+// LoginMicrosoft 请尝试轮询这个接口，5秒一轮回。在返回 -6 错误时可以忽略。。其余的请向用户展示你所遇到的问题~
 func (account *AccountLogin) LoginMicrosoft(deviceCode string) (*AccountResult, error) {
 	const MsLive = "https://login.microsoftonline.com/consumers/oauth2/v2.0/token"
 	k1 := fmt.Sprintf("grant_type=urn:ietf:params:oauth:grant-type:device_code&client_id=%s&device_code=%s", account.key, deviceCode)
@@ -284,15 +322,143 @@ func (account *AccountLogin) LoginMicrosoft(deviceCode string) (*AccountResult, 
 		}
 	} else {
 		res := int(Safe(resJSON, -1.0, "error_codes", 0).(float64))
-		if res == 70016 {
+		switch res {
+		case 70016:
 			return nil, NewMMCLLError(-6, "Login Device Code is Invalid!")
-		} else if res == 70020 {
+		case 70020:
 			return nil, NewMMCLLError(-7, "Login Time out!")
-		} else {
+		default:
 			return nil, NewMMCLLError(-8, "Unknown Error")
 		}
 	}
 }
-func (account *AccountLogin) RefreshMicrosoft() {
+func (account *AccountLogin) RefreshMicrosoft(refreshToken string) (*AccountResult, error) {
+	return nil, NewMMCLLError(-10001, "Not Implemented")
+}
 
+// GetUserCodeThirdOAuth 需要填入绝对的 URL 地址，例如【 https://open.littleskin.cn/oauth/device_code 】
+// 在获取到 device_code 和 user_code 之后，你需要自行跳转到对应皮肤站的回调链接，例如【 https://open.littleskin.cn/oauth/link 】
+func (account *AccountLogin) GetUserCodeThirdOAuth(server string) (string, string, error) {
+	method := NewUrlMethod(server)
+	k1 := fmt.Sprintf("client_id=%s&scope=User.Read%%20Player.Read%%20Yggdrasil.PlayerProfiles.Select%%20openid%%20offline_access", account.key)
+	res, err := method.Post(k1, false)
+	if err != nil {
+		return "", "", NewMMCLLError(-101, err.Error())
+	}
+	var resJSON map[string]any
+	if err = json.Unmarshal([]byte(res), &resJSON); err != nil {
+		return "", "", NewMMCLLError(-102, err.Error())
+	}
+	userCode := Safe(resJSON, "", "user_code").(string)
+	deviceCode := Safe(resJSON, "", "device_code").(string)
+	if userCode == "" || deviceCode == "" {
+		return "", "", NewMMCLLError(-103, "Cannot get User Code or Device Code to String!")
+	}
+	return userCode, deviceCode, nil
+}
+
+// LoginThirdPartyOAuth 这里的 server 需要填入绝对的 URL 地址，例如【 https://open.littleskin.cn/oauth/token 】
+// 请尝试轮询这个接口，5秒一轮回。在返回 -106 错误时可以忽略。。其余的请向用户展示你所遇到的问题~
+func (account *AccountLogin) LoginThirdPartyOAuth(server, deviceCode string) (*AccountResult, error) {
+	k1 := fmt.Sprintf("grant_type=urn:ietf:params:oauth:grant-type:device_code&client_id=%s&device_code=%s", account.key, deviceCode)
+	u1 := NewUrlMethod(server)
+	g1, err := u1.Post(k1, false)
+	if err != nil {
+		return nil, NewMMCLLError(-104, err.Error())
+	}
+	var resJSON map[string]any
+	if err = json.Unmarshal([]byte(g1), &resJSON); err != nil {
+		return nil, NewMMCLLError(-105, err.Error())
+	}
+	if res := Safe(resJSON, "", "access_token").(string); res != "" {
+		padBase64 := func(raw string) string {
+			raw = strings.TrimSpace(raw)
+			padLength := (4 - len(raw)%4) % 4
+			return raw + strings.Repeat("=", padLength)
+		}
+		idToken := Safe(resJSON, "", "id_token").(string)
+		refreshToken := Safe(resJSON, "", "refresh_token").(string)
+		if refreshToken == "" || idToken == "" {
+			return nil, NewMMCLLError(-110, "Cannot get Refresh Token or ID Token!")
+		}
+		decode, err := base64.StdEncoding.DecodeString(padBase64(strings.Split(idToken, ".")[1]))
+		if err != nil {
+			return nil, NewMMCLLError(-111, err.Error())
+		}
+		var resJSON map[string]any
+		if err = json.Unmarshal(decode, &resJSON); err != nil {
+			return nil, NewMMCLLError(-112, err.Error())
+		}
+		profile := Safe(resJSON, map[string]any{}, "selectedProfile").(map[string]any)
+		username := Safe(profile, "", "name").(string)
+		userUUID := Safe(profile, "", "id").(string)
+		if userUUID == "" || username == "" {
+			return nil, NewMMCLLError(-113, "Cannot get User UUID or User Name!")
+		}
+		return &AccountResult{
+			name:         username,
+			uuid:         userUUID,
+			accessToken:  res,
+			refreshToken: refreshToken,
+			clientToken:  "",
+			base:         "",
+		}, nil
+	} else {
+		res := Safe(resJSON, "", "error", 0).(string)
+		switch res {
+		case "authorization_pending":
+			return nil, NewMMCLLError(-106, "Login Device Code is Invalid!")
+		case "expire_token":
+			return nil, NewMMCLLError(-107, "Login Time out!")
+		default:
+			return nil, NewMMCLLError(-108, "Unknown Error")
+		}
+	}
+}
+func (account *AccountLogin) RefreshThirdOAuth(server string, refreshToken string) (*AccountResult, error) {
+	return nil, NewMMCLLError(-10002, "Not Implemented")
+}
+func (account *AccountLogin) LoginThirdParty(username, password string) ([]*AccountResult, error) {
+	u1 := fmt.Sprintf("%s/authserver/authenticate", account.key)
+	k1 := fmt.Sprintf(`{
+	"username": "%s",
+	"password": "%s",
+	"requestUser": false,
+	"agent": {
+		"name": "Minecraft",
+		"version": 1
+	}
+}`, username, password)
+	w1 := NewUrlMethod(u1)
+	t1, err := w1.Post(k1, true)
+	if err != nil {
+		return nil, NewMMCLLError(-120, err.Error())
+	}
+	var j1 map[string]any
+	if err = json.Unmarshal([]byte(t1), &j1); err != nil {
+		return nil, NewMMCLLError(-121, err.Error())
+	}
+	a1 := Safe(j1, "", "accessToken").(string)
+	if a1 == "" {
+		mar, _ := json.Marshal(j1)
+		return nil, NewMMCLLError(-121, "Cannot get Access Token, The Error JSON Is: "+string(mar))
+	}
+	r1 := Safe(j1, []any{}, "availableProfiles").([]any)
+	var res []*AccountResult
+	for _, v := range r1 {
+		name := Safe(v, "", "name").(string)
+		uuid := Safe(v, "", "id").(string)
+		if name == "" || uuid == "" {
+			continue
+		}
+		res = append(res, &AccountResult{
+			name:         name,
+			uuid:         uuid,
+			accessToken:  a1,
+			refreshToken: "",
+			clientToken:  "",
+			base:         "",
+		})
+	}
+	return res, nil
 }

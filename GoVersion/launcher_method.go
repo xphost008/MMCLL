@@ -2,10 +2,9 @@ package mmcll
 
 import (
 	"archive/zip"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
-	"github.com/go-vgo/robotgo"
-	"github.com/shirou/gopsutil/mem"
 	"io"
 	"os"
 	"path/filepath"
@@ -13,6 +12,9 @@ import (
 	"runtime"
 	"strconv"
 	"strings"
+
+	"github.com/go-vgo/robotgo"
+	"github.com/shirou/gopsutil/mem"
 )
 
 func ConvNameToPath(name string) string {
@@ -274,10 +276,12 @@ func JudgeRule(rules []any) bool {
 	}
 	return boo
 }
+
+// Unzip 解压缩
 func Unzip(zipPath, extractPath string) error {
 	archive, err := zip.OpenReader(zipPath)
 	if err != nil {
-		return err
+		return NewMMCLLError(-1451, "Cannot Open Zip File!")
 	}
 	defer archive.Close()
 	for _, f := range archive.File {
@@ -304,14 +308,15 @@ func Unzip(zipPath, extractPath string) error {
 }
 
 // UnzipNative 解压 Natives，从 {rootPath}/libraries中，找到 finalJson 里的 libraries 对应的键值，随后解压到 {versionPath}/{版本号}-natives下
-func UnzipNative(finalJson, rootPath, versionPath string) error {
+// isCheckLibraries 的意思是：你是否需要检查 Libraries 的正确性？如果不需要检查，可以设置成 false。
+func UnzipNative(finalJson, rootPath, versionPath string, isCheckLibraries bool) error {
 	nativeDir := filepath.Join(versionPath, fmt.Sprintf("%s-%s-native", filepath.Base(versionPath), LauncherName))
 	if err := os.MkdirAll(nativeDir, os.ModePerm); err != nil {
-		return err
+		return NewMMCLLError(-233, "Cannot Mkdir in "+versionPath+"!")
 	}
 	var f map[string]any
 	if err := json.Unmarshal([]byte(finalJson), &f); err != nil {
-		return err
+		return NewMMCLLError(-234, "Cannot Parse JSON!")
 	}
 	libs := Safe(f, []any{}, "libraries").([]any)
 	for _, lib := range libs {
@@ -337,16 +342,19 @@ func UnzipNative(finalJson, rootPath, versionPath string) error {
 		} else if runtime.GOARCH == "amd64" || runtime.GOARCH == "arm64" {
 			CurOsNative = strings.ReplaceAll(CurOsNative, "${arch}", "64")
 		}
-		sha1 := Safe(lib, "", "downloads", "classifiers", CurOsNative, "sha1").(string)
 		path := filepath.Join(rootPath, "libraries", ConvNameToPath(name+":"+CurOsNative))
-		if sha1 != "" {
-			if sha, err := GetSha1(path); err != nil || sha != sha1 {
-				return NewMMCLLError(-200, "Native Sha1 Not match your Libraries, Please download it again!")
+		if isCheckLibraries {
+			sha1 := Safe(lib, "", "downloads", "classifiers", CurOsNative, "sha1").(string)
+			if sha1 != "" {
+				if sha, err := GetSha1(path); err != nil {
+					return NewMMCLLError(-200, "Read Natives sha1 has occurred Error!, Please download it again! Error: "+err.Error())
+				} else if sha != sha1 {
+					return NewMMCLLError(-350, "Native Sha1 Not match your Libraries, Please download it again!")
+				}
 			}
 		}
 		if err := Unzip(path, nativeDir); err != nil {
-			fmt.Println(path)
-			return NewMMCLLError(-201, "Cannot Unzip Native, Please download it again!")
+			return NewMMCLLError(-201, "Cannot Unzip Native, Please download it again! Error: "+err.Error())
 		}
 	}
 	return nil
@@ -389,6 +397,7 @@ func LibsIndexOf(libs []string, lib string) int {
 
 // GetMCLibs 通过 realJson 获取到 MC 所有的 Libraries，并将其拼接到 -cp 参数的后面。与此同时，还会拼接 versionPath 下的主 jar 文件！
 // result: 返回一个切片，你需要自己处理分号还是冒号的问题，在 Windows 上以 分号 作为分隔符，在类 Unix 系统上以 冒号 作为分隔符。
+// isCheckLibraries 的意思是：你是否需要检查 Libraries 的正确性？如果不需要检查，可以设置成 false。
 func GetMCLibs(realJson map[string]any, rootPath, versionPath string, isCheckLibraries bool) ([]string, error) {
 	var result []string
 	libs := Safe(realJson, []any{}, "libraries").([]any)
@@ -412,14 +421,20 @@ func GetMCLibs(realJson map[string]any, rootPath, versionPath string, isCheckLib
 		if isCheckLibraries {
 			sha1 := Safe(lib, "", "downloads", "artifact", "sha1")
 			if sha1 != "" {
-				if sha, err := GetSha1(path); err != nil || sha != sha1 {
-					// 最近有朋友反馈：手动修改了 glfw-patcher 之后，由于 sha1 对不上，导致这里直接返回错误，故这里不特判 asm，将直接 continue 掉。
+				if sha, err := GetSha1(path); err != nil {
+					// 最近有朋友反馈：手动修改了 glfw-patcher 之后，由于 sha1 对不上，导致这里直接返回错误，
 					// 由于现已更新 是否校验 sha1，因此，此处可以直接返回 NewMMCLLError 了！
+					// 这里不特判 asm，将直接 continue 掉。
 					// Fuck you asm!!
 					if name == "org.ow2.asm:asm:9.6" {
 						continue
 					}
-					return nil, NewMMCLLError(-203, "Library Sha1 Not match your Libraries, Please download it again!")
+					return nil, NewMMCLLError(-400, "Read Natives sha1 has occurred Error!, Please download it again! Error: "+err.Error())
+				} else if sha != sha1 {
+					if name == "org.ow2.asm:asm:9.6" {
+						continue
+					}
+					return nil, NewMMCLLError(-450, "Native Sha1 Not match your Libraries, Please download it again!")
 				}
 			}
 		}
@@ -442,7 +457,7 @@ func GetMCLibs(realJson map[string]any, rootPath, versionPath string, isCheckLib
 	// 由于 Fabric 以及 Forge 的影响，现在版本 json 里没有 jar 这个键值对，因此这一段掐掉。与此同时下方替换成直接获取 inheritsFrom。原有逻辑被注释（
 	inhJar, err := GetMCInheritsFrom(versionPath, "inheritsFrom")
 	if err != nil {
-		return nil, err
+		return nil, NewMMCLLError(-1450, "Cannot Get MC InheritsFrom Key!")
 	}
 	//inhJar, err := GetMCInheritsFrom(versionPath, "jar")
 	//if err != nil {
@@ -467,6 +482,8 @@ func GetMCLibs(realJson map[string]any, rootPath, versionPath string, isCheckLib
 		if inhPath, err := GetMCRealPath(inhJar, sha1); err == nil {
 			result = append(result, inhPath)
 			return result, nil
+		} else {
+			return nil, NewMMCLLError(-208, "Cannot find Main Jar file, Please download it again! Error: "+err.Error())
 		}
 	}
 	return nil, NewMMCLLError(-208, "Cannot find Main Jar file, Please download it again!")
@@ -478,9 +495,10 @@ type LaunchAccount struct {
 	name        string // name 账户名字
 	uuid        string // uuid 账号UUID
 	accessToken string // accessToken 正版账号登录密钥
-	atype       string // atype 账号登录类型
+	accType     string // accType 账号登录类型
 	base        string // base 账号登录第三方数据（仅限外置登录）
 	url         string // url 账号登录第三方网址（仅限外置登录）
+	alijPath    string // AuthLib-Injector 路径
 	online      int8   // online 账号类型（1：离线、2：正版、3：外置）
 }
 
@@ -496,8 +514,8 @@ func (l LaunchAccount) AccessToken() string {
 	return l.accessToken
 }
 
-func (l LaunchAccount) Atype() string {
-	return l.atype
+func (l LaunchAccount) AccType() string {
+	return l.accType
 }
 
 func (l LaunchAccount) Base() string {
@@ -506,6 +524,10 @@ func (l LaunchAccount) Base() string {
 
 func (l LaunchAccount) Url() string {
 	return l.url
+}
+
+func (l LaunchAccount) AlijPath() string {
+	return l.alijPath
 }
 
 func (l LaunchAccount) Online() int8 {
@@ -518,9 +540,10 @@ func NewLaunchAccountOffline(name, uuid string) LaunchAccount {
 		name:        name,
 		uuid:        uuid,
 		accessToken: uuid,
-		atype:       "Legacy",
+		accType:     "Legacy",
 		base:        "",
 		url:         "",
+		alijPath:    "",
 		online:      1,
 	}
 }
@@ -531,22 +554,24 @@ func NewLaunchAccountMicrosoft(name, uuid, accessToken string) LaunchAccount {
 		name:        name,
 		uuid:        uuid,
 		accessToken: accessToken,
-		atype:       "msa",
+		accType:     "msa",
 		base:        "",
 		url:         "",
+		alijPath:    "",
 		online:      2,
 	}
 }
 
 // NewLaunchAccountThirdParty 新建一个外置登录模块
-func NewLaunchAccountThirdParty(name, uuid, accessToken, base, url string) LaunchAccount {
+func NewLaunchAccountThirdParty(name, uuid, accessToken, base, url, alijPath string) LaunchAccount {
 	return LaunchAccount{
 		name:        name,
 		uuid:        uuid,
 		accessToken: accessToken,
-		atype:       "msa",
+		accType:     "msa",
 		base:        base,
 		url:         url,
+		alijPath:    alijPath,
 		online:      3,
 	}
 }
@@ -712,57 +737,88 @@ func newLaunchStart(option LaunchOption, callback func([]string)) launchGame {
 func (lg launchGame) checkError() error {
 	if lg.account.Online() == 0 {
 		if b, _ := regexp.MatchString("^[a-zA-Z0-9]{3,16}$", lg.account.Name()); !b {
-			return NewMMCLLError(ErrUserNameInvalid, "username is invalid")
+			return NewMMCLLError(1, "user name is invalid")
 		}
 		if b, _ := regexp.MatchString("^[a-f0-9]{32}$", lg.account.Uuid()); !b {
-			return NewMMCLLError(ErrUserUUIDInvalid, "useruuid is invalid")
+			return NewMMCLLError(2, "user uuid is invalid")
 		}
 	} else if lg.account.Online() == 1 {
+		um := NewUrlMethod("https://api.minecraftservices.com/minecraft/profile")
+		ih, err := um.Get(lg.account.accessToken)
+		if err != nil {
+			return NewMMCLLError(95, "Get user info failed, Maybe your Access Token is Expired")
+		}
+		var m map[string]any
+		if err = json.Unmarshal([]byte(ih), &m); err != nil {
+			return NewMMCLLError(96, "Unmarshal user info failed, Maybe your Access Token is Expired")
+		}
+		name := Safe(m, "", "name").(string)
+		if name == "" {
+			return NewMMCLLError(97, "user name is invalid, Maybe your Access Token is Expired")
+		}
+		uuid := Safe(m, "", "id").(string)
+		if uuid == "" {
+			return NewMMCLLError(98, "user uuid is invalid, Maybe your Access Token is Expired")
+		}
+		if name != lg.account.Name() || uuid != lg.account.Uuid() {
+			return NewMMCLLError(99, "user name or uuid not equals your access token, if you try to login with another account, please logout and try again!")
+		}
 		//TODO: 微软账户判断
 	} else if lg.account.Online() == 2 {
-		//TODO: 第三方账号判断
+		fmt.Println("mmm")
+		ap, err := os.Stat(lg.account.AlijPath())
+		if err != nil || !ap.IsDir() {
+			return NewMMCLLError(50, "AuthLib-Injector File Is Not Found!")
+		}
+		t := fmt.Sprintf("%s/authserver/validate", lg.account.Url())
+		p := fmt.Sprintf(`{"accesstoken":"%s"}`, lg.account.AccessToken())
+		po := NewUrlMethod(t)
+		_, err = po.Post(p, true)
+		if err != nil {
+			return NewMMCLLError(51, "ThirdParty Login Is Expire!")
+		}
 	}
 	cInfo, err := os.Stat(lg.javaPath)
 	if os.IsNotExist(err) {
-		return NewMMCLLError(ErrJavaPathInvalid, "javaPath does not exist")
+		return NewMMCLLError(3, "javaPath does not exist")
 	} else if cInfo.IsDir() {
-		return NewMMCLLError(ErrJavaPathInvalid, "javaPath is a directory")
+		return NewMMCLLError(3, "javaPath is a directory")
 	}
 	cInfo, err = os.Stat(lg.rootPath)
 	if os.IsNotExist(err) {
-		return NewMMCLLError(ErrRootPathInvalid, "rootPath does not exist")
+		return NewMMCLLError(4, "rootPath does not exist")
 	} else if !cInfo.IsDir() {
-		return NewMMCLLError(ErrRootPathInvalid, "rootPath is not a directory")
+		return NewMMCLLError(4, "rootPath is not a directory")
 	}
 	cInfo, err = os.Stat(lg.versionPath)
 	if os.IsNotExist(err) {
-		return NewMMCLLError(ErrVersionPathInvalid, "versionPath does not exist")
+		return NewMMCLLError(5, "versionPath does not exist")
 	} else if !cInfo.IsDir() {
-		return NewMMCLLError(ErrVersionPathInvalid, "versionPath is not a directory")
+		return NewMMCLLError(5, "versionPath is not a directory")
 	}
 	cInfo, err = os.Stat(lg.gamePath)
 	if os.IsNotExist(err) {
-		return NewMMCLLError(ErrGamePathInvalid, "gamePath does not exist")
+		return NewMMCLLError(6, "gamePath does not exist")
 	} else if !cInfo.IsDir() {
-		return NewMMCLLError(ErrGamePathInvalid, "gamePath is not a directory")
+		return NewMMCLLError(6, "gamePath is not a directory")
 	}
 	sx, sy := robotgo.GetScreenSize()
 	if lg.windowWidth < 854 || lg.windowWidth > uint32(sx) {
-		return NewMMCLLError(ErrWidthOutOfRange, "window width out of range")
+		return NewMMCLLError(7, "window width out of range")
 	}
 	if lg.windowHeight < 480 || lg.windowHeight > uint32(sy) {
-		return NewMMCLLError(ErrHeightOutOfRange, "window height out of range")
+		return NewMMCLLError(8, "window height out of range")
 	}
 	if lg.minMemory < 256 || lg.minMemory > 1024 {
-		return NewMMCLLError(ErrMinMemoryOutOfRange, "minMemory out of range")
+		return NewMMCLLError(9, "minMemory out of range")
 	}
 	v, _ := mem.VirtualMemory()
 	sysMem := v.Total / 1024 / 1024
 	if lg.maxMemory < 1024 || lg.maxMemory > uint32(sysMem) {
-		return NewMMCLLError(ErrMaxMemoryOutOfRange, "maxMemory out of range")
+		return NewMMCLLError(10, "maxMemory out of range")
 	}
 	if lg.customInfo == "" {
-		return NewMMCLLError(ErrCustomInfoIsEmpty, "customInfo is empty")
+		return NewMMCLLError(11, "customInfo is empty")
 	}
 	return nil
 }
@@ -810,7 +866,7 @@ func (lg launchGame) launch() (err error) {
 	} else {
 		finalJson = rawJSON
 	}
-	if err := UnzipNative(finalJson, lg.rootPath, lg.versionPath); err != nil {
+	if err := UnzipNative(finalJson, lg.rootPath, lg.versionPath, lg.isCheckLibraries); err != nil {
 		return NewMMCLLError(-106, err.Error())
 	}
 	realJson := MergeMCJson(rawJSON, finalJson)
@@ -857,8 +913,21 @@ func (lg launchGame) putArgument(realJson map[string]any, result []string) ([]st
 	} else {
 		result = append(result, "-Djava.library.path=${natives_directory}", "-cp", "${classpath}")
 	}
-	// TODO: 判断第三方登录（暂未实现）
-	if lg.account.Base() != "" {
+	// 判断第三方登录
+	if lg.account.Online() == 3 {
+		result = append(result, fmt.Sprintf("-javaagent:%s=%s", lg.account.AlijPath(), lg.account.Url()))
+		result = append(result, "-Dauthlibinjector.side=client")
+		if lg.account.Base() == "" {
+			l1 := NewUrlMethod(lg.account.Url())
+			l2, err := l1.GetDefault()
+			if err != nil {
+				return nil, NewMMCLLError(-211, "Cannot Get Skin Metadata!")
+			}
+			b := base64.StdEncoding.EncodeToString(l2)
+			result = append(result, fmt.Sprintf("-Dauthlibinjector.yggdrasil.prefetched=%s", b))
+		} else {
+			result = append(result, fmt.Sprintf("-Dauthlibinjector.yggdrasil.prefetched=%s", lg.account.Base()))
+		}
 	}
 	result = append(result, fmt.Sprintf("-Xmn%dm", lg.minMemory))
 	result = append(result, fmt.Sprintf("-Xmx%dm", lg.maxMemory))
@@ -885,7 +954,7 @@ func (lg launchGame) putArgument(realJson map[string]any, result []string) ([]st
 	}
 	libs, err := GetMCLibs(realJson, lg.rootPath, lg.versionPath, lg.isCheckLibraries)
 	if err != nil {
-		return nil, err
+		return nil, NewMMCLLError(-212, "Cannot Get All MC Libraries!")
 	}
 	lv := strings.ReplaceAll(LauncherVersion, ".", "")
 	lv = strings.ReplaceAll(lv, "-", "")
@@ -908,7 +977,7 @@ func (lg launchGame) putArgument(realJson map[string]any, result []string) ([]st
 		result[i] = strings.ReplaceAll(result[i], "${auth_uuid}", lg.account.Uuid())
 		result[i] = strings.ReplaceAll(result[i], "${uuid}", lg.account.Uuid())
 		result[i] = strings.ReplaceAll(result[i], "${auth_access_token}", lg.account.AccessToken())
-		result[i] = strings.ReplaceAll(result[i], "${user_type}", lg.account.Atype())
+		result[i] = strings.ReplaceAll(result[i], "${user_type}", lg.account.AccType())
 		result[i] = strings.ReplaceAll(result[i], "${version_type}", lg.customInfo)
 		result[i] = strings.ReplaceAll(result[i], "${auth_session}", lg.account.Uuid())
 		result[i] = strings.ReplaceAll(result[i], "${game_assets}", filepath.Join(lg.rootPath, "assets", "virtual", "legacy"))

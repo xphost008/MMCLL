@@ -39,9 +39,9 @@ func SafeGet[T any](slice []T, index int) (T, bool) {
 }
 
 // Safe 通过一个 cond JSON 对象，安全的获取到里面的值。如果获取不到或者类型不匹配，则返回defaultValue类型的值。
-// @param cond: 传入的JSON对象
-// @param defaultValue 默认值
-// @param keys 需要遍历的key，可以深度获取
+// cond: 传入的JSON对象
+// param defaultValue 默认值
+// keys 需要遍历的key，可以深度获取
 func Safe(cond any, defaultValue any, keys ...any) any {
 	var current = cond
 out:
@@ -82,6 +82,10 @@ func GetFile(path string) (string, error) {
 	return string(content), nil
 }
 
+func GetBFile(path string) ([]byte, error) {
+	return os.ReadFile(path)
+}
+
 // GetSha1 获取文件sha1
 func GetSha1(path string) (string, error) {
 	open, err := os.Open(path)
@@ -115,12 +119,30 @@ func SetFile(path, content string) error {
 			return err
 		}
 	}
-	file, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0644)
+	file, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0755)
 	if err != nil {
 		return err
 	}
 	defer file.Close()
 	if _, err := file.WriteString(content); err != nil {
+		return err
+	}
+	return nil
+}
+
+func SetBFile(path string, content []byte) error {
+	dir := filepath.Dir(path)
+	if dir != "" {
+		if err := os.MkdirAll(dir, 0755); err != nil {
+			return err
+		}
+	}
+	file, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0644)
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+	if _, err := file.Write(content); err != nil {
 		return err
 	}
 	return nil
