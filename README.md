@@ -20,7 +20,7 @@
 |Python|PythonVersion|18%|
 |Delphi|DelphiVersion|5%|
 |易语言|EVersion|0%|
-|Go|GoVersion|23%|
+|Go|GoVersion|48%|
 |Rust|RustVersion|58%|
 
 - This library are not put to any lib url, such as `rust crates.io`, `C# nuget`, `Java maven` and more!
