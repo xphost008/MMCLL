@@ -78,7 +78,7 @@ func TestThirdOAuthLogin(t *testing.T) {
     clientId := launcher.LittleSkinKey()
     login := mmcll.NewAccountLogin(clientId)
     // 以下需要填入你的 device_code 请求地址
-    uc, dc, err := login.GetUserCode("https://open.littleskin.cn/oauth/device_code")
+    uc, dc, err := login.GetUserCodeThirdOAuth("https://open.littleskin.cn/oauth/device_code")
     if err != nil {
         t.Error(err)
     }
@@ -120,7 +120,6 @@ func TestThirdLogin(t *testing.T) {
     fmt.Println(login.Uuid())
     fmt.Println(login.AccessToken())
     t.Log("Login success!")
-    break
 }
 ```
 
