@@ -3,9 +3,9 @@ package mmcll
 import "fmt"
 
 const (
-	LauncherName      = "MMCLL"          // LauncherName 启动器名称（请自行修改）
-	LauncherVersion   = "0.0.1-Alpha-12" // LauncherVersion 启动器版本
-	LauncherUserAgent = "MMCLL/0.0.1.12" // LauncherUserAgent 启动器UserAgent，用于在网络请求时的设置
+	LauncherName      = "MMCLL"                  // LauncherName 启动器名称（请自行修改）
+	LauncherVersion   = "0.0.1-Alpha-18"         // LauncherVersion 启动器版本
+	LauncherUserAgent = "MMCLL/0.0.1.18" // LauncherUserAgent 启动器UserAgent，用于在网络请求时的设置
 )
 
 // ErrorMMCLL 定义报错类型
