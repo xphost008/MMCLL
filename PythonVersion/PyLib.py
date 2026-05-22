@@ -208,7 +208,7 @@ class MainClass:
         l[8] = l[8] & 0x3f | 0x80
         res = ""
         for i in l:
-            res += hex(i).replace("0x", "").lower()
+            res += hex(i).replace("0x", "").zfill(2).lower()
         return res
 
     @staticmethod
